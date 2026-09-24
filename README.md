@@ -10,7 +10,9 @@ npm run dev        # http://localhost:5173 （--host 付きなので同じWi-Fi�
 npm test           # エンジン・DB・UIのテスト
 npm run build      # dist/ に静的ファイルを出力（Firebase Hosting / Vercel などにそのまま置ける）
 ```
-- ホーム画面への追加（PWA・オフライン）には HTTPS 配信が必要。配信先を決めたら `dist/` をデプロイする。
+- 公開URL: https://kota-mochizuki.github.io/cfp-study/ （GitHub Pages、gh-pages ブランチ）
+- 更新して公開: `npm run deploy`（テスト → ビルド → dist/ を gh-pages に push）。アプリは次回起動時に自動更新される。
+- 公開されるのはアプリ本体とサンプル問題のみ。過去問JSONは公開せず、各端末でインポートする。
 - 学習データは端末ごと。設定 → バックアップ で JSON を書き出して保管・移行する。
 
 ## ドキュメント
