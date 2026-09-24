@@ -2,6 +2,7 @@ import type { Attempt, Card, CaseGroup, Question, QuestionMeta, Session, Setting
 import { DEFAULT_INTERVALS, LadderScheduler, emptyCard } from '../engine/scheduler';
 import { ALL_TABLES, db } from './db';
 import { toMeta } from './taxonomy';
+import { SAMPLE_QUESTIONS } from './seed/sampleQuestions';
 
 /**
  * データアクセスはすべてここを経由する。
@@ -65,6 +66,21 @@ export async function deleteQuestion(id: string) {
   await db.transaction('rw', db.questions, db.qmeta, db.cards, db.favorites, db.notes, async () => {
     await Promise.all([db.questions.delete(id), db.qmeta.delete(id), db.cards.delete(id), db.favorites.delete(id), db.notes.delete(id)]);
   });
+}
+
+/** 同梱サンプル問題の ID（自分で作った ORIG- 問題と区別するため ID 一覧で判定） */
+export const SAMPLE_IDS = new Set(SAMPLE_QUESTIONS.map((r) => String(r.question_id)));
+
+/** 同梱サンプル問題の一括削除。回答履歴は残す。削除後は再投入されない */
+export async function deleteSampleQuestions(): Promise<number> {
+  const ids = (await db.questions.bulkGet([...SAMPLE_IDS])).filter((q) => q?.tags.includes('サンプル')).map((q) => q!.question_id);
+  const groups = new Set((await db.questions.bulkGet(ids)).map((q) => q?.case_group_id).filter(Boolean) as string[]);
+  await db.transaction('rw', [db.questions, db.qmeta, db.cards, db.favorites, db.notes, db.caseGroups], async () => {
+    await Promise.all([db.questions.bulkDelete(ids), db.qmeta.bulkDelete(ids), db.cards.bulkDelete(ids), db.favorites.bulkDelete(ids), db.notes.bulkDelete(ids)]);
+    // 他の問題が使っていない事例だけ削除
+    for (const g of groups) if (!(await db.questions.where('case_group_id').equals(g).count())) await db.caseGroups.delete(g);
+  });
+  return ids.length;
 }
 
 export interface AnswerInput {

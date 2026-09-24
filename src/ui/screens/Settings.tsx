@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../../app/store';
 import { db } from '../../data/db';
-import { exportBackup, restoreBackup } from '../../data/repo';
+import { SAMPLE_IDS, deleteSampleQuestions, exportBackup, restoreBackup } from '../../data/repo';
 import { ymd } from '../../lib/time';
 import { isIOS, isStandalone, storageInfo, type StorageInfo } from '../../lib/device';
 import { Icon, PageHeader } from '../components';
@@ -20,12 +20,19 @@ export default function SettingsScreen() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [msg, setMsg] = useState('');
   const [storage, setStorage] = useState<StorageInfo>();
+  const sampleCount = app.metas.filter((m) => SAMPLE_IDS.has(m.id)).length;
   useEffect(() => { storageInfo().then(setStorage); }, [app.metas.length]);
 
   async function restore(f: File) {
     if (!confirm('現在のデータをすべて置き換えて復元します。よろしいですか？')) return;
     try { await restoreBackup(await f.text()); await app.reload(); setMsg('復元しました'); }
     catch (e) { setMsg(`復元できませんでした：${(e as Error).message}`); }
+  }
+  async function removeSamples() {
+    if (!confirm('サンプル問題を削除します（過去問・自分で追加した問題は残ります）。よろしいですか？')) return;
+    const n = await deleteSampleQuestions();
+    await app.reload();
+    setMsg(`サンプル問題 ${n}問を削除しました`);
   }
   async function resetLearning() {
     if (!confirm('回答履歴・復習スケジュール・セッションを削除します（問題データは残ります）。よろしいですか？')) return;
@@ -73,6 +80,7 @@ export default function SettingsScreen() {
         <li><Link to="/admin/import"><span>CSV / JSON インポート</span><Icon name="chevron" size={16} /></Link></li>
       </ul>
       <p className="footnote">登録済み {app.metas.length}問（出題対象 {app.activeMetas.length}問）・論点ノード {app.nodes.length}</p>
+      {sampleCount > 0 && <button className="btn-secondary sm" onClick={removeSamples}>サンプル問題を削除（{sampleCount}問）</button>}
     </section>
 
     <section className="card">

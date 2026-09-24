@@ -81,3 +81,18 @@ describe('データ層（IndexedDB）', () => {
     await expect(restoreBackup('{"app":"other"}')).rejects.toThrow();
   });
 });
+
+describe('サンプル問題の削除', () => {
+  it('タグ「サンプル」だけ消え、他の問題・履歴は残り、再起動しても戻らない', async () => {
+    const { deleteSampleQuestions } = await import('../data/repo');
+    await bootstrap();
+    await db.questions.put({ ...(await db.questions.get('ORIG-TAX-0001'))!, question_id: 'ORIG-MINE-1', tags: ['サンプル'] });
+    await db.attempts.add({ questionId: 'ORIG-TAX-0001', sessionId: 's', answeredAt: Date.now(), selected: 'A', correct: true, timeMs: 1, mode: 'daily', streakBefore: 0, wrongCountBefore: 0, dueAtBefore: null, difficulty: 1, subject: 'tax', topicId: 'tax', questionType: 'knowledge' });
+    expect(await deleteSampleQuestions()).toBe(SAMPLE_QUESTIONS.length);
+    expect(await db.questions.count()).toBe(1);
+    expect(await db.caseGroups.count()).toBe(0);
+    expect(await db.attempts.count()).toBe(1);
+    await bootstrap();
+    expect(await db.questions.count()).toBe(1);
+  });
+});
