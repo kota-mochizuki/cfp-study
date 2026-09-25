@@ -146,3 +146,19 @@ describe('解説・検証（v2）', () => {
     v2.close();
   });
 });
+
+describe('初期データ v1 → v2', () => {
+  it('残っているサンプルだけ解説を更新し、削除済みは戻さない', async () => {
+    const { isExplained } = await import('../data/quality');
+    await bootstrap();
+    // v1 相当に戻す: 版を1にし、1問を古い解説に、1問を削除
+    await db.kv.put({ key: 'seedVersion', value: 1 });
+    const q = (await db.questions.get('ORIG-TAX-0001'))!;
+    await db.questions.put({ ...q, explanation_a: '古い', verified_answer: undefined, verification_status: 'unverified' });
+    await db.questions.delete('ORIG-TAX-0002');
+    await bootstrap();
+    const after = (await db.questions.get('ORIG-TAX-0001'))!;
+    expect(isExplained(after)).toBe(true);
+    expect(await db.questions.get('ORIG-TAX-0002')).toBeUndefined();
+  });
+});

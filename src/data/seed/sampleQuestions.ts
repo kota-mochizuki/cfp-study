@@ -1,4 +1,5 @@
 import type { RawRow } from '../validate';
+import { SAMPLE_EXPLANATIONS } from './sampleExplanations';
 
 /**
  * 動作確認用のオリジナル問題（過去問の転載ではない）。
@@ -28,7 +29,7 @@ export const SAMPLE_CASE_GROUPS = [
   },
 ];
 
-export const SAMPLE_QUESTIONS: RawRow[] = [
+const SAMPLE_ROWS: RawRow[] = [
   // ───────── 金融資産運用設計 ─────────
   Q({
     question_id: 'ORIG-FIN-0001', explanation_short: '償還差益を年割りして利子に足し、購入価格で割る。', trap: '分母を額面100円にした選択肢（1.40%）に注意。', calculation_steps: ['何を求めるか：最終利回り（単利・年率）', '使う数値：表面利率1.0%、購入価格98円、額面100円、残存5年', '計算式：{表面利率＋(額面−購入価格)÷残存年数}÷購入価格×100', '計算：{1.0＋(100−98)÷5}÷98×100＝1.4÷98×100≒1.4286%', '照合：小数点以下第3位を四捨五入して1.43% → 選択肢4'], subject: 'finance', category_large: 'リターンとリスクの評価', category_middle: '債券と金利', category_small: '金利と利回り', topic: '最終利回り',
@@ -413,3 +414,6 @@ export const SAMPLE_QUESTIONS: RawRow[] = [
     related_topics: '相続時精算課税の基礎控除（2024年以降）;贈与税額控除', difficulty: 2, importance: 3, frequency: 3, question_type: 'knowledge',
   }),
 ];
+
+/** 品質基準対応の解説を重ねたサンプル問題 */
+export const SAMPLE_QUESTIONS: RawRow[] = SAMPLE_ROWS.map((r) => ({ ...r, ...SAMPLE_EXPLANATIONS[String(r.question_id)] }));

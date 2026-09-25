@@ -37,3 +37,32 @@ describe.skipIf(!existsSync(FILE))('公式過去問の取り込み（ローカ�
     expect((await db.caseGroups.toArray()).length).toBe(99); // 過去問の事例98＋サンプル1
   }, 120_000);
 });
+
+const EXPL_DIR = `${homedir()}/Downloads/CFP関係/import/explanations`;
+describe.skipIf(!existsSync(FILE) || !existsSync(EXPL_DIR))('過去問の解説（ローカルのみ）', () => {
+  it('解説ファイルを差分で取り込むと、verified の問題は品質基準を満たし表示対象になる', async () => {
+    const { readdirSync } = await import('node:fs');
+    const { isExplained, explanationChecklist } = await import('../data/quality');
+    await db.delete(); await db.open();
+    await bootstrap();
+    const base = parseFile(readFileSync(FILE, 'utf8'), 'past_exams_all.json');
+    await commitImport(await previewImport(base.rows, base.caseGroups, '2026-10-01'), 'skip');
+    const files = readdirSync(EXPL_DIR).filter((f) => f.endsWith('_explanations.json'));
+    for (const f of files) {
+      const { rows } = parseFile(readFileSync(`${EXPL_DIR}/${f}`, 'utf8'), f);
+      const p = await previewImport(rows, [], '2026-10-01');
+      expect(p.results.filter((r) => r.errors.length).map((r) => r.errors)).toEqual([]);
+      expect(p.patches).toBe(rows.length);
+      await commitImport(p, 'skip');
+      for (const r of rows) {
+        const q = (await db.questions.get(String(r.question_id)))!;
+        expect(q.question_text.length).toBeGreaterThan(10);
+        if (q.verification_status === 'verified') {
+          expect(explanationChecklist(q).filter((c) => !c.ok).map((c) => `${q.question_id}:${c.key}`)).toEqual([]);
+          expect(isExplained(q)).toBe(true);
+        } else expect(isExplained(q)).toBe(false);
+      }
+    }
+    expect(files.length).toBeGreaterThan(0);
+  }, 120_000);
+});

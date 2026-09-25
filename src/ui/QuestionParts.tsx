@@ -86,27 +86,31 @@ export function Explanation({ q, order, selected, openDetail, onOpenDetail }: { 
   const [why, setWhy] = useState(false);
   const [all, setAll] = useState(openDetail);
   const [calc, setCalc] = useState(openDetail && steps.length > 0);
-  const points = splitPoints(q.key_point);
+  // 品質基準を満たした解説だけを表示する。未完成・不一致・要確認では解説文を出さず、正誤と公式解答のみ
   const pending = !isExplained(q);
+  const points = pending ? [] : splitPoints(q.key_point);
+  const exOf = (k: ChoiceKey) => (pending ? undefined : choiceExplanation(q, k));
   const open = (set: (v: boolean) => void, cur: boolean) => () => { set(!cur); if (!cur) onOpenDetail?.(); };
 
   return <div className="explain">
-    {q.explanation_short && <p className="short-ex">{q.explanation_short}</p>}
+    {!pending && q.explanation_short && <p className="short-ex">{q.explanation_short}</p>}
     {points.length > 0 && <div className="keypoint"><h4>POINT</h4>
       {points.length > 1 ? <ul>{points.map((p) => <li key={p}>{p}</li>)}</ul> : <p>{points[0]}</p>}</div>}
-    {q.trap && <div className="trap"><h4>TRAP ⚡</h4><p>{q.trap}</p></div>}
-    {pending && <p className="pending">解説準備中（公式解答：{no(q.correct_answer)}）</p>}
+    {!pending && q.trap && <div className="trap"><h4>TRAP ⚡</h4><p>{q.trap}</p></div>}
+    {pending && <p className="pending">{q.verification_status === 'mismatch' || q.verification_status === 'needs_review'
+      ? `⚠ 解説は確認中です（公式解答：${no(q.correct_answer)}）`
+      : `解説準備中（公式解答：${no(q.correct_answer)}）`}</p>}
     <LawNote q={q} correctNo={no(q.correct_answer)} />
 
     <div className="dig-row">
       {wrong && <button className={`dig ${why ? 'on' : ''}`} aria-expanded={why} onClick={open(setWhy, why)}>なぜ{no(selected!)}ではない？</button>}
       <button className={`dig ${all ? 'on' : ''}`} aria-expanded={all} onClick={open(setAll, all)}>1〜4を詳しく見る</button>
-      {steps.length > 0 && <button className={`dig ${calc ? 'on' : ''}`} aria-expanded={calc} onClick={open(setCalc, calc)}>計算過程を見る</button>}
+      {!pending && steps.length > 0 && <button className={`dig ${calc ? 'on' : ''}`} aria-expanded={calc} onClick={open(setCalc, calc)}>計算過程を見る</button>}
     </div>
 
     {why && wrong && <div className="why">
       <h4>なぜ{no(selected!)}ではない？</h4>
-      <Markdown text={choiceExplanation(q, selected!) || 'この選択肢の解説はまだありません。'} />
+      {exOf(selected!) ? <Markdown text={exOf(selected!)!} /> : <p className="muted">この選択肢の解説は準備中です。下の2つを見比べてください。</p>}
       <div className="contrast">
         <h5>この違いを覚える</h5>
         <div className="ct ng"><b>×</b><span>{no(selected!)}．{choiceText(q, selected!)}</span></div>
@@ -115,7 +119,7 @@ export function Explanation({ q, order, selected, openDetail, onOpenDetail }: { 
       {!all && <button className="subtle-btn" onClick={open(setAll, false)}>他の選択肢も見る</button>}
     </div>}
 
-    {calc && <ol className="steps">{steps.map((st, i) => <li key={i}><span className="step-no">STEP {i + 1}</span><Markdown text={st} /></li>)}</ol>}
+    {!pending && calc && <ol className="steps">{steps.map((st, i) => <li key={i}><span className="step-no">STEP {i + 1}</span><Markdown text={st} /></li>)}</ol>}
 
     {all && <>
       <ul className="choice-cards">
@@ -124,7 +128,7 @@ export function Explanation({ q, order, selected, openDetail, onOpenDetail }: { 
           return <li key={k} className={`${ok ? 'cc-ok' : 'cc-ng'} ${k === selected ? 'cc-mine' : ''}`}>
             <div className="cc-head"><span className="choice-no sm">{i + 1}</span><b>{ok ? '✓ CORRECT' : '×'}</b>{k === selected && <span className="mine">あなたの回答</span>}</div>
             <p className="cc-choice">{choiceText(q, k)}</p>
-            {choiceExplanation(q, k) && <Markdown text={choiceExplanation(q, k)!} />}
+            {exOf(k) && <Markdown text={exOf(k)!} />}
           </li>;
         })}
       </ul>

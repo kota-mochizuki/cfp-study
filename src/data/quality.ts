@@ -5,7 +5,7 @@ export interface CheckItem { key: string; label: string; ok: boolean }
 
 const ex = (q: Question, k: ChoiceKey) => (q[`explanation_${k.toLowerCase()}` as 'explanation_a'] ?? '').trim();
 /** 不正解の解説に「正しい内容」が書かれているかの目安 */
-const SHOWS_CORRECT = /正しくは|ではなく|が正しい|となる|となり|である|とされ|必要|限られ|できる|できない|含まれ|=|＝|→/;
+const SHOWS_CORRECT = /正しくは|ではなく|が正しい|となる|となり|である|とされ|必要|限られ|できる|できない|含まれ|=|＝|→|逆である|誤り。.{6,}|している|される|という|いう。|ない。|なる。/;
 
 /**
  * 解説の品質チェック。すべて満たしたものだけを「解説完成」とする。
@@ -19,13 +19,21 @@ export function explanationChecklist(q: Question): CheckItem[] {
     { key: 'all_ex', label: '選択肢1〜4すべてに解説がある', ok: CHOICE_KEYS.every((k) => !!ex(q, k)) },
     { key: 'correct_reason', label: '正解の理由がある', ok: ex(q, q.correct_answer).length >= 8 },
     { key: 'wrong_reason', label: '不正解の理由がある', ok: wrong.every((k) => ex(q, k).length >= 8) },
-    { key: 'wrong_fix', label: '不正解について正しい内容が示されている（目安）', ok: wrong.every((k) => SHOWS_CORRECT.test(ex(q, k))) },
+    // 誤った記述（解説が×で始まる。印がなければ正解以外）には「正しくはどうなるか」が必要
+    { key: 'wrong_fix', label: '誤りの選択肢について正しい内容が示されている（目安）', ok: CHOICE_KEYS.filter((k) => isFalseStatement(q, k)).every((k) => SHOWS_CORRECT.test(ex(q, k))) },
     { key: 'point', label: 'POINTがある', ok: !!q.key_point?.trim() },
     { key: 'law', label: '法令基準日がある', ok: /^\d{4}-\d{2}-\d{2}$/.test(q.law_reference_date ?? '') },
     { key: 'verified', label: '公式解答と独立検証の答えが一致している', ok: q.verification_status === 'verified' && q.verified_answer === q.correct_answer },
   ];
   if (q.question_type === 'calculation') items.splice(7, 0, { key: 'calc', label: '計算過程がある', ok: (q.calculation_steps?.length ?? 0) >= 2 });
   return items;
+}
+
+function isFalseStatement(q: Question, k: ChoiceKey): boolean {
+  const t = ex(q, k);
+  if (t.startsWith('×')) return true;
+  if (t.startsWith('○')) return false;
+  return k !== q.correct_answer;
 }
 
 export const isExplained = (q: Question) => explanationChecklist(q).every((i) => i.ok);
