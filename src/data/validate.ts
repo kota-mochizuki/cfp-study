@@ -1,5 +1,6 @@
-import type { CaseGroup, ChoiceKey, LawFlag, Question, QuestionStatus, QuestionType, SourceType } from '../domain/types';
+import type { CaseGroup, ChoiceKey, LawFlag, Question, QuestionStatus, QuestionType, SourceType, VerificationStatus } from '../domain/types';
 import { parseSubject } from '../domain/subjects';
+import { deriveVerification } from './quality';
 import type { TaxonomyIndex } from './taxonomy';
 
 export type RawRow = Record<string, unknown>;
@@ -12,6 +13,8 @@ export interface RowResult {
   warnings: string[];
   /** DB に同じ question_id が既にある */
   exists?: boolean;
+  /** 既存問題への差分（解説追加など）。スキップ設定に関係なく反映する */
+  patch?: boolean;
 }
 
 export const REQUIRED = [
@@ -27,7 +30,28 @@ export const ALL_COLUMNS = [
   'difficulty', 'importance', 'frequency', 'question_type', 'source_type', 'source_year', 'source_exam',
   'source_question_number', 'parent_question_id', 'calc_method', 'variant_spec',
   'law_reference_date', 'law_revision_flag', 'tags', 'status',
+  'explanation_short', 'trap', 'calculation_steps', 'verified_answer', 'verification_status', 'current_rule_note',
 ] as const;
+
+/** 仕様書側の名前で書かれた列も受け付ける（既存項目に統合） */
+export const COLUMN_ALIASES: Record<string, string> = {
+  official_answer: 'correct_answer',
+  explanation_detailed: 'explanation',
+  law_revision_status: 'law_revision_flag',
+};
+
+export function applyAliases(raw: RawRow): RawRow {
+  const out: RawRow = { ...raw };
+  for (const [from, to] of Object.entries(COLUMN_ALIASES)) if (out[from] != null && out[from] !== '' && (out[to] == null || out[to] === '')) out[to] = out[from];
+  return out;
+}
+
+/** 計算過程: 配列、または改行・「;」区切り */
+export function parseSteps(v: unknown): string[] | undefined {
+  const xs = Array.isArray(v) ? v.map(str) : str(v).split(/\n|;|；/).map((s) => s.trim());
+  const steps = xs.filter(Boolean);
+  return steps.length ? steps : undefined;
+}
 
 const str = (v: unknown) => (v == null ? '' : String(v).trim());
 
@@ -67,7 +91,8 @@ function parseIntIn(v: unknown, min: number, max: number): number | null {
 
 const QTYPES: Record<string, QuestionType> = { knowledge: 'knowledge', calculation: 'calculation', case: 'case', reading: 'reading', 知識: 'knowledge', 計算: 'calculation', 事例: 'case', 資料読解: 'reading', 読解: 'reading' };
 const STYPES: Record<string, SourceType> = { official_past_exam: 'official_past_exam', original: 'original', ai_variant: 'ai_variant', 過去問: 'official_past_exam', オリジナル: 'original', AI類題: 'ai_variant', 類題: 'ai_variant' };
-const LFLAGS: Record<string, LawFlag> = { verified: 'verified', needs_check: 'needs_check', outdated: 'outdated', 法改正確認済み: 'verified', 確認済み: 'verified', 要確認: 'needs_check', 旧制度問題: 'outdated', 旧制度: 'outdated' };
+const VSTATUS: Record<string, VerificationStatus> = { unverified: 'unverified', verified: 'verified', needs_review: 'needs_review', mismatch: 'mismatch', 未検証: 'unverified', 検証済み: 'verified', 要確認: 'needs_review', 不一致: 'mismatch' };
+const LFLAGS: Record<string, LawFlag> = { verified: 'verified', needs_check: 'needs_check', outdated: 'outdated', needs_review: 'needs_check', old_rule: 'outdated', 法改正確認済み: 'verified', 確認済み: 'verified', 要確認: 'needs_check', 旧制度問題: 'outdated', 旧制度: 'outdated' };
 const STATUSES: Record<string, QuestionStatus> = { active: 'active', draft: 'draft', archived: 'archived', 公開: 'active', 下書き: 'draft', アーカイブ: 'archived' };
 
 export interface ValidateContext {
@@ -85,6 +110,7 @@ export interface ValidateContext {
 export function validateRow(raw: RawRow, row: number, ctx: ValidateContext, seenIds: Set<string>): RowResult {
   const errors: string[] = [];
   const warnings: string[] = [];
+  raw = applyAliases(raw);
   const g = (k: string) => str(raw[k]);
 
   for (const k of REQUIRED) if (!g(k)) errors.push(`必須項目「${k}」がありません`);
@@ -97,6 +123,11 @@ export function validateRow(raw: RawRow, row: number, ctx: ValidateContext, seen
   if (g('subject') && !subject) errors.push(`課目「${g('subject')}」を認識できません（finance/realestate/life/risk/tax/inheritance または日本語課目名）`);
 
   const correct = g('correct_answer') ? parseAnswer(g('correct_answer')) : null;
+  const verified = g('verified_answer') ? parseAnswer(g('verified_answer')) : undefined;
+  if (g('verified_answer') && !verified) errors.push(`verified_answer「${g('verified_answer')}」が不正です（A〜D または 1〜4）`);
+  const vstated = g('verification_status') ? VSTATUS[g('verification_status')] : undefined;
+  if (g('verification_status') && !vstated) warnings.push(`verification_status「${g('verification_status')}」不明 → 自動判定`);
+  if (correct && verified && verified !== correct) warnings.push(`公式解答 ${correct} と検証結果 ${verified} が一致しません（要確認として取り込みます）`);
   if (g('correct_answer') && !correct) errors.push(`正解「${g('correct_answer')}」が不正です（A〜D または 1〜4）`);
 
   const choices = ['choice_a', 'choice_b', 'choice_c', 'choice_d'].map(g);
@@ -153,6 +184,9 @@ export function validateRow(raw: RawRow, row: number, ctx: ValidateContext, seen
     question_text: g('question_text'), case_group_id: caseId,
     choice_a: choices[0], choice_b: choices[1], choice_c: choices[2], choice_d: choices[3], correct_answer: correct,
     explanation: g('explanation'),
+    explanation_short: g('explanation_short') || undefined, trap: g('trap') || undefined,
+    calculation_steps: parseSteps(raw.calculation_steps), current_rule_note: g('current_rule_note') || undefined,
+    verified_answer: verified ?? undefined, verification_status: deriveVerification(correct, verified ?? undefined, vstated),
     explanation_a: g('explanation_a') || undefined, explanation_b: g('explanation_b') || undefined,
     explanation_c: g('explanation_c') || undefined, explanation_d: g('explanation_d') || undefined,
     key_point: g('key_point'), related_topics: parseList(raw.related_topics),

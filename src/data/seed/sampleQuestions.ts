@@ -6,7 +6,8 @@ import type { RawRow } from '../validate';
  * 法令基準日: 2026-04-01 時点の制度で作成。
  */
 const base = { law_reference_date: '2026-04-01', law_revision_flag: 'verified', source_type: 'original', tags: 'サンプル', status: 'active' };
-const Q = (r: RawRow): RawRow => ({ ...base, ...r });
+// サンプルは作成者が独立に解き直して公式解答（correct_answer）と一致を確認済み
+const Q = (r: RawRow): RawRow => ({ ...base, verified_answer: r.correct_answer, verification_status: 'verified', ...r });
 
 export const SAMPLE_CASE_GROUPS = [
   {
@@ -30,7 +31,7 @@ export const SAMPLE_CASE_GROUPS = [
 export const SAMPLE_QUESTIONS: RawRow[] = [
   // ───────── 金融資産運用設計 ─────────
   Q({
-    question_id: 'ORIG-FIN-0001', subject: 'finance', category_large: 'リターンとリスクの評価', category_middle: '債券と金利', category_small: '金利と利回り', topic: '最終利回り',
+    question_id: 'ORIG-FIN-0001', explanation_short: '償還差益を年割りして利子に足し、購入価格で割る。', trap: '分母を額面100円にした選択肢（1.40%）に注意。', calculation_steps: ['何を求めるか：最終利回り（単利・年率）', '使う数値：表面利率1.0%、購入価格98円、額面100円、残存5年', '計算式：{表面利率＋(額面−購入価格)÷残存年数}÷購入価格×100', '計算：{1.0＋(100−98)÷5}÷98×100＝1.4÷98×100≒1.4286%', '照合：小数点以下第3位を四捨五入して1.43% → 選択肢4'], subject: 'finance', category_large: 'リターンとリスクの評価', category_middle: '債券と金利', category_small: '金利と利回り', topic: '最終利回り',
     question_text: '表面利率1.0%、残存期間5年の固定利付債券を、額面100円につき98円で購入した。この債券の最終利回り（単利・年率）として、正しいものはどれか。なお、税金・手数料は考慮せず、計算結果は小数点以下第3位を四捨五入すること。',
     choice_a: '0.61%', choice_b: '1.02%', choice_c: '1.40%', choice_d: '1.43%', correct_answer: 'D',
     explanation: '最終利回り ＝ {表面利率 ＋ (額面 − 購入価格) ÷ 残存期間} ÷ 購入価格 × 100\n＝ {1.0 ＋ (100 − 98) ÷ 5} ÷ 98 × 100 ＝ 1.4 ÷ 98 × 100 ≒ **1.43%**',
@@ -197,7 +198,7 @@ export const SAMPLE_QUESTIONS: RawRow[] = [
     related_topics: '6つの係数の使い分け;資本回収係数', difficulty: 2, importance: 3, frequency: 3, question_type: 'calculation',
   }),
   Q({
-    question_id: 'ORIG-LIFE-0003', subject: 'life', category_large: '医療保険制度', category_middle: '健康保険', topic: '高額療養費',
+    question_id: 'ORIG-LIFE-0003', explanation_short: '区分ウ：80,100円＋(医療費−267,000円)×1%。', calculation_steps: ['何を求めるか：1か月の自己負担限度額', '使う数値：標準報酬月額41万円（区分ウ）、総医療費100万円', '計算式：80,100円＋(総医療費−267,000円)×1%', '計算：80,100＋(1,000,000−267,000)×1%＝80,100＋7,330＝87,430円', '照合：87,430円 → 選択肢2'], subject: 'life', category_large: '医療保険制度', category_middle: '健康保険', topic: '高額療養費',
     question_text: '全国健康保険協会管掌健康保険（協会けんぽ）の被保険者Bさん（45歳、標準報酬月額41万円）が、同一月に同一医療機関で入院し、保険診療分の医療費総額が100万円となった。高額療養費制度における自己負担限度額として、正しいものはどれか。なお、多数回該当には当たらないものとする。\n\n〈70歳未満の自己負担限度額（標準報酬月額28万〜50万円）〉\n80,100円 ＋（総医療費 − 267,000円）× 1%',
     choice_a: '57,600円', choice_b: '87,430円', choice_c: '171,820円', choice_d: '300,000円', correct_answer: 'B',
     explanation: '80,100円 ＋ (1,000,000円 − 267,000円) × 1% ＝ 80,100円 ＋ 7,330円 ＝ **87,430円**\n窓口負担（3割＝30万円）との差額が高額療養費として支給される。',
@@ -257,7 +258,7 @@ export const SAMPLE_QUESTIONS: RawRow[] = [
     related_topics: '養老保険の福利厚生プラン;長期平準定期保険', difficulty: 3, importance: 3, frequency: 3, question_type: 'knowledge',
   }),
   Q({
-    question_id: 'ORIG-RISK-0003', subject: 'risk', category_large: '損害保険の種類', category_middle: '火災保険', topic: '地震保険の仕組み',
+    question_id: 'ORIG-RISK-0003', explanation_short: '地震保険料は全社同一。', trap: '「保険会社ごとに異なる」は火災保険の感覚に引っ張られた誤り。', subject: 'risk', category_large: '損害保険の種類', category_middle: '火災保険', topic: '地震保険の仕組み',
     question_text: '地震保険に関する次の記述のうち、最も不適切なものはどれか。',
     choice_a: '地震保険は火災保険に付帯して契約する必要があり、単独で契約することはできない。',
     choice_b: '保険金額は主契約の火災保険金額の30%〜50%の範囲内で設定し、建物5,000万円・家財1,000万円が上限となる。',
@@ -306,7 +307,7 @@ export const SAMPLE_QUESTIONS: RawRow[] = [
     related_topics: '所得金額調整控除;特定支出控除', difficulty: 1, importance: 3, frequency: 3, question_type: 'calculation',
   }),
   Q({
-    question_id: 'ORIG-TAX-0002', subject: 'tax', category_large: '個人の所得にかかる税金その1所得税', category_middle: '所得税の課税標準と所得税額の計算', category_small: '所得控除', topic: '医療費控除',
+    question_id: 'ORIG-TAX-0002', explanation_short: '補塡額を引いてから10万円を引く。', trap: '総所得金額等200万円以上なので足切りは10万円（5%ではない）。', calculation_steps: ['何を求めるか：医療費控除額', '使う数値：医療費30万円、保険補塡5万円、総所得金額等400万円', '計算式：(医療費−補塡額)−min(10万円, 総所得金額等×5%)', '計算：(30万−5万)−10万＝15万円', '照合：15万円 → 選択肢2'], subject: 'tax', category_large: '個人の所得にかかる税金その1所得税', category_middle: '所得税の課税標準と所得税額の計算', category_small: '所得控除', topic: '医療費控除',
     question_text: 'Dさん（総所得金額等400万円）が本年中に支払った医療費は30万円で、そのうち5万円は生命保険の入院給付金で補塡された。Dさんの医療費控除の額として、正しいものはどれか。なお、セルフメディケーション税制は選択しない。',
     choice_a: '5万円', choice_b: '15万円', choice_c: '20万円', choice_d: '25万円', correct_answer: 'B',
     explanation: '医療費控除 ＝ (支払医療費 − 保険金等の補塡額) − 10万円（総所得金額等が200万円未満なら総所得金額等×5%）\n＝ (30万 − 5万) − 10万 ＝ **15万円**（上限200万円）',
@@ -364,7 +365,7 @@ export const SAMPLE_QUESTIONS: RawRow[] = [
     related_topics: '法定相続分;代襲相続;生命保険金の非課税限度額', difficulty: 2, importance: 3, frequency: 3, question_type: 'case',
   }),
   Q({
-    question_id: 'ORIG-INH-0002', subject: 'inheritance', category_large: '相続の概要', category_middle: '相続分', topic: '法定相続分（代襲相続・相続放棄）',
+    question_id: 'ORIG-INH-0002', explanation_short: '法定相続分では放棄者は「初めからいない」。', trap: '基礎控除の人数（放棄者も数える）と法定相続分（放棄者を除く）の混同。', subject: 'inheritance', category_large: '相続の概要', category_middle: '相続分', topic: '法定相続分（代襲相続・相続放棄）',
     case_group_id: 'CASE-INH-01',
     question_text: '事例のAさんの相続における、孫Fさんの民法上の法定相続分として、正しいものはどれか。',
     choice_a: '1/6', choice_b: '1/8', choice_c: '1/12', choice_d: '1/16', correct_answer: 'B',

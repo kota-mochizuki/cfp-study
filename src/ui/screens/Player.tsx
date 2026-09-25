@@ -16,6 +16,11 @@ interface Answered {
   attemptId: number;
   insight: string | null;
   suggestedCause?: ErrorCause;
+  /** 前回この問題で選んだ誤答（回答後にだけ表示。回答前のヒントにしない） */
+  lastWrong?: ChoiceKey;
+  /** 誤答の選択肢ごとの累計回数（今回を含む） */
+  wrongChoices?: Partial<Record<ChoiceKey, number>>;
+  revengeComplete: boolean;
 }
 
 export default function Player() {
@@ -76,6 +81,7 @@ export default function Player() {
     const timeMs = Date.now() - startRef.current;
     const correct = selected === q.correct_answer;
     const openDefault = app.prefs.openExplanation[q.question_type];
+    const prev = (app.attempts ?? []).filter((a) => a.questionId === q.question_id).sort((a, b) => b.answeredAt - a.answeredAt)[0];
     const r = await recordAnswer({
       question: meta, session, slot: item.slot, track: item.track, reason: item.reason, selected, correct, timeMs, at: Date.now(),
       avgTimeMs: app.avgTimeMs, intervals: app.settings.intervals, trackExplanation: session.feedback === 'immediate' && !openDefault,
@@ -104,7 +110,11 @@ export default function Player() {
     setSession(next);
     let suggestedCause: ErrorCause | undefined;
     if (!correct) suggestedCause = r.before?.lastResult ? 'forgot' : timeMs > app.avgTimeMs * 3 ? 'time' : undefined;
-    setAnswered({ correct, attemptId: r.attempt.id!, insight: answerInsight(r.before, correct, timeMs), suggestedCause });
+    setAnswered({
+      correct, attemptId: r.attempt.id!, insight: answerInsight(r.before, correct, timeMs), suggestedCause,
+      lastWrong: prev && !prev.correct && prev.selected ? prev.selected : undefined,
+      wrongChoices: r.card.wrongChoices, revengeComplete: correct && (r.before?.wrongCount ?? 0) > 0,
+    });
     setBusy(false);
   }
 
@@ -151,14 +161,10 @@ export default function Player() {
     <Choices q={q} order={order} selected={selected} revealed={!!answered} onSelect={setSelected} />
 
     {answered && <section className="answer">
-      <div className={`verdict ${answered.correct ? 'ok' : 'ng'}`} role="status">
-        <span className="verdict-mark">{answered.correct ? '○' : '×'}</span>
-        <span>{answered.correct ? '正解' : '不正解'}</span>
-        <span className="verdict-sub">正解は {order.indexOf(q.correct_answer) + 1}</span>
-      </div>
-      {answered.insight && <p className="insight">{answered.insight}</p>}
+      <Verdict answered={answered} order={order} q={q} selected={selected!} />
+      {answered.insight && !answered.revengeComplete && <p className="insight">{answered.insight}</p>}
 
-      <Explanation q={q} order={order} openDetail={app.prefs.openExplanation[q.question_type]}
+      <Explanation key={q.question_id} q={q} order={order} selected={selected} openDetail={app.prefs.openExplanation[q.question_type]}
         onOpenDetail={() => { updateAttempt(answered.attemptId, { explanationOpened: true }); app.patchAttempt(answered.attemptId, { explanationOpened: true }); }} />
 
       {!answered.correct && <div className="cause">
@@ -193,4 +199,22 @@ export default function Player() {
         : <button className="btn-primary btn-xl" onClick={submit} disabled={!selected || busy}>{session.feedback === 'deferred' ? (session.cursor + 1 >= total ? '回答して終了' : '回答して次へ') : '回答する'}</button>}
     </footer>
   </main>;
+}
+
+/** 正解は小さく気持ちよく、誤答は「次に倒す対象ができた」へ。REVENGE 攻略は強めに */
+function Verdict({ answered, order, q, selected }: { answered: Answered; order: ChoiceKey[]; q: Question; selected: ChoiceKey }) {
+  const no = (k: ChoiceKey) => order.indexOf(k) + 1;
+  const total = Object.values(answered.wrongChoices ?? {}).reduce((a, b) => a + (b ?? 0), 0);
+  const repeats = Object.entries(answered.wrongChoices ?? {}).filter(([, n]) => (n ?? 0) >= 2) as [ChoiceKey, number][];
+  if (answered.correct) return <div className={`verdict ok ${answered.revengeComplete ? 'revenge' : ''}`} role="status">
+    <div className="verdict-main"><span>{answered.revengeComplete ? 'REVENGE COMPLETE ⚡' : '✓ CORRECT'}</span><span className="verdict-sub">{no(q.correct_answer)}</span></div>
+    {answered.revengeComplete && answered.lastWrong && <p className="verdict-line">前回：{no(answered.lastWrong)}　→　今回：{no(q.correct_answer)} ✓</p>}
+  </div>;
+  return <div className="verdict ng" role="status">
+    <div className="verdict-main"><span>REVENGE ADDED</span><span className="verdict-sub">明日もう一度</span></div>
+    <p className="verdict-line">あなたの回答：{no(selected)}　／　正解：{no(q.correct_answer)}</p>
+    {answered.lastWrong && <p className="verdict-line muted">LAST TIME あなたは {no(answered.lastWrong)} を選択しました</p>}
+    {total >= 2 && <p className="verdict-line muted">この問題は{total}回間違えています。{repeats.map(([k, n]) => `${no(k)}を選択：${n}回`).join('・')}
+      {repeats.length > 0 && '（この選択肢の誤解を重点復習）'}</p>}
+  </div>;
 }

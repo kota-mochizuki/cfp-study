@@ -1,4 +1,4 @@
-import type { ChoiceKey, ErrorCause, LawFlag, QuestionType, SessionMode, SourceType, SubjectId } from './types';
+import type { ChoiceKey, ErrorCause, LawFlag, QuestionType, SessionMode, SourceType, SubjectId, VerificationStatus } from './types';
 
 export interface SubjectDef {
   id: SubjectId;
@@ -45,7 +45,10 @@ export const SOURCE_TYPES: Record<SourceType, string> = {
   official_past_exam: '過去問', original: 'オリジナル', ai_variant: 'AI類題',
 };
 export const LAW_FLAGS: Record<LawFlag, string> = {
-  verified: '法改正確認済み', needs_check: '要確認', outdated: '旧制度問題',
+  verified: '法令確認済み', needs_check: '法改正確認が必要', outdated: '旧制度問題',
+};
+export const VERIFICATION: Record<VerificationStatus, string> = {
+  unverified: '未検証', verified: '検証済み', needs_review: '要確認', mismatch: '公式解答と不一致',
 };
 export const ERROR_CAUSES: Record<ErrorCause, string> = {
   knowledge: '知識不足', calc: '計算ミス', misread: '読み間違い', law: '法改正', forgot: '忘れていた', time: '時間不足',
@@ -53,7 +56,7 @@ export const ERROR_CAUSES: Record<ErrorCause, string> = {
 export const LEVEL_LABELS = ['未回答', '苦手', '学習中', '定着途中', '定着'] as const;
 
 export const MODE_LABELS: Record<SessionMode, string> = {
-  daily: '今日の最適学習', subject: '科目別', weak: '苦手攻略', wrong: '間違えた問題', unanswered: '未回答',
+  daily: '今日の最適学習', subject: '科目別', weak: '苦手攻略', wrong: 'REVENGE', unanswered: '未回答',
   random: 'ランダム', test10: '10問テスト', mock: '本番模試', surprise: 'Surprise 5', challenge: 'Challenge 5',
   calc: '計算特訓', diagnostic: '実力診断', favorites: 'お気に入り', flagged: 'あとで復習', single: '1問',
 };

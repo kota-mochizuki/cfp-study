@@ -1,6 +1,7 @@
 import type { Question, QuestionMeta, SubjectId, TaxNode } from '../domain/types';
 import { SUBJECTS } from '../domain/subjects';
 import guide from './seed/taxonomy.json';
+import { isExplained } from './quality';
 
 /** 課目ノード＋FP学習ガイド（2026/4/1改定）から抽出した大・中・小分類 */
 export function seedNodes(): TaxNode[] {
@@ -71,5 +72,6 @@ export function toMeta(q: Question): QuestionMeta {
     id: q.question_id, subject: q.subject, topicId: q.topic_id, difficulty: q.difficulty, importance: q.importance,
     frequency: q.frequency, type: q.question_type, source: q.source_type, year: q.source_year, lawFlag: q.law_revision_flag,
     lawDate: q.law_reference_date, status: q.status, caseGroupId: q.case_group_id, textLength: q.question_text.length,
+    verification: q.verification_status ?? 'unverified', explained: isExplained(q),
   };
 }

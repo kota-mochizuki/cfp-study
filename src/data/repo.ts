@@ -106,6 +106,7 @@ export async function recordAnswer(inp: AnswerInput): Promise<{ attempt: Attempt
     const card = new LadderScheduler(inp.intervals).review(before ?? emptyCard(inp.question.id), {
       correct: inp.correct, at: inp.at, timeMs: inp.timeMs, difficulty: inp.question.difficulty, avgTimeMs: inp.avgTimeMs,
     });
+    if (!inp.correct && inp.selected) card.wrongChoices = { ...card.wrongChoices, [inp.selected]: (card.wrongChoices?.[inp.selected] ?? 0) + 1 };
     const attempt: Attempt = {
       questionId: inp.question.id, sessionId: inp.session.id, answeredAt: inp.at, selected: inp.selected, correct: inp.correct,
       timeMs: inp.timeMs, mode: inp.session.mode, slot: inp.slot, track: inp.track, reason: inp.reason,

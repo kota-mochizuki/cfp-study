@@ -1,5 +1,5 @@
-import type { Card, QuestionMeta, SessionItem, SessionMode, Slot, SubjectId, TaxNode, Track } from '../domain/types';
-import { SUBJECTS, SUBJECT_MAP } from '../domain/subjects';
+import type { Card, ChoiceKey, QuestionMeta, SessionItem, SessionMode, Slot, SubjectId, TaxNode, Track } from '../domain/types';
+import { SUBJECTS, SUBJECT_MAP, choiceLabel } from '../domain/subjects';
 import { DAY, daysBetween, endOfDay, startOfDay } from '../lib/time';
 import { shuffle } from '../lib/random';
 import { WEAK_THRESHOLD, type NodeStat } from './mastery';
@@ -100,7 +100,8 @@ export function buildSession(ctx: BuildContext, opt: BuildOptions): Plan {
   const score: Record<Slot, (c: Cand) => number> = {
     CORE: (c) => {
       const overdue = c.due && c.card?.dueAt ? Math.min(14, Math.max(0, (now - c.card.dueAt) / DAY)) / 14 : 0;
-      return (c.due ? 1.5 + 2 * overdue : 0) + (c.card?.flagged ? 1 : 0) + 2 * (1 - (c.topicM ?? 0.5)) + base(c) - pen(c) + jitter();
+      // 同じ誤答を繰り返している＝誤概念が残っている問題は優先
+      return (c.due ? 1.5 + 2 * overdue : 0) + (c.card?.flagged ? 1 : 0) + (repeatedWrong(c.card) ? 1 : 0) + 2 * (1 - (c.topicM ?? 0.5)) + base(c) - pen(c) + jitter();
     },
     CHALLENGE: (c) => c.q.difficulty + (c.topicM ?? 0.5) + jitter(0.8),
     DISCOVERY: (c) => base(c) + 1.2 * unlearnedTopic(c) - pen(c) + jitter(0.6),
@@ -230,6 +231,12 @@ function subjectBias(all: Cand[], now: number): Map<SubjectId, number> {
   return new Map([...counts].map(([k, v]) => [k, v / total]));
 }
 
+/** 同じ誤答を2回以上選んでいれば [選択肢, 回数] */
+export function repeatedWrong(card: Card | undefined): [ChoiceKey, number] | null {
+  const top = Object.entries(card?.wrongChoices ?? {}).sort((a, b) => b[1] - a[1])[0];
+  return top && top[1] >= 2 ? [top[0] as ChoiceKey, top[1]] : null;
+}
+
 export function reasonFor(c: Pick<Cand, 'card' | 'answered' | 'due' | 'weak' | 'topicM' | 'q'>, slot: Slot, ctx: BuildContext): string {
   const topicName = ctx.nodes.get(c.q.topicId)?.name ?? '';
   if (slot === 'SURPRISE') return 'Surprise：全範囲からの出題です';
@@ -237,6 +244,8 @@ export function reasonFor(c: Pick<Cand, 'card' | 'answered' | 'due' | 'weak' | '
   if (c.answered && c.card) {
     const days = c.card.lastAnsweredAt ? daysBetween(c.card.lastAnsweredAt, ctx.now) : 0;
     if (c.card.flagged) return '「あとで復習」に登録した問題です';
+    const rep = repeatedWrong(c.card);
+    if (rep && c.card.lastResult === false) return `REVENGE：同じ誤答（${choiceLabel(rep[0])}）を${rep[1]}回選んでいる問題です`;
     if (c.card.lastResult === false) return days <= 0 ? 'さっき間違えた問題です' : `${days}日前に間違えた問題です`;
     if (c.weak && c.topicM != null) return `あなたの苦手論点です（${topicName} ${Math.round(c.topicM * 100)}%）`;
     if (c.due) return `忘却防止の復習です（前回から${days}日）`;

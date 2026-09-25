@@ -17,7 +17,7 @@ export function ReviewItem({ q, selected, index, seed }: { q: Question; selected
     <QuestionBody q={q} topicName={app.nodeMap.get(q.topic_id)?.name ?? q.topic} lawBaseDate={app.settings.lawBaseDate} />
     <Choices q={q} order={order} selected={selected} revealed />
     {!selected && <p className="muted">未回答</p>}
-    <Explanation q={q} order={order} openDetail />
+    <Explanation q={q} order={order} selected={selected} openDetail />
   </Collapse>;
 }
 

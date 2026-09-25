@@ -31,6 +31,35 @@
 | law_revision_flag | | `verified` `needs_check` `outdated`（確認済み/要確認/旧制度問題）。省略時は要確認 |
 | status | | `active` `draft` `archived`（既定 active） |
 
+### 解説・検証（v2で追加）
+| 列 | 内容 |
+|---|---|
+| explanation_short | 回答直後の一言解説（40字程度） |
+| key_point | POINT。1〜3個を改行区切り |
+| trap | ひっかけ注意（ある問題のみ） |
+| calculation_steps | 計算過程。JSONは配列、CSVは改行または `;` 区切り（STEP1 何を求めるか〜STEP5 照合） |
+| verified_answer | 独立に解き直した答え（1〜4 / A〜D）。公式解答は correct_answer |
+| verification_status | `verified` `needs_review` `mismatch` `unverified`。公式解答と verified_answer が食い違えば自動で mismatch |
+| current_rule_note | 旧制度問題で「現在の制度ではどうなるか」 |
+
+別名の列も受け付けます: `official_answer`→correct_answer、`explanation_detailed`→explanation、`law_revision_status`→law_revision_flag（`needs_review`・`old_rule` も可）。
+
+### 差分インポート（既存の問題に解説を追記）
+`question_id` と追記したい列だけの行を取り込むと、既存の問題に重ねて更新します（問題文・画像・回答履歴はそのまま）。
+「既存IDはスキップ」を選んでいても差分行は反映されます。
+
+### 解説完成の基準
+公式解答・選択肢1〜4・4つすべての選択肢解説・正解の理由・不正解の理由と正しい内容・POINT・（計算問題なら）計算過程・法令基準日・公式解答と検証結果の一致。
+すべて満たしたものだけ「解説完成」。未完成でも出題はされ、画面では「解説準備中」と表示します。
+
+## AI解説の作り方
+1. 問題管理で「解説：解説未完成」などに絞り込み、「AI解説プロンプト」を押す（10問ずつ。クリップボードにコピー＋.md保存）
+2. Claude に貼り付ける（図表のある問題は原本画像も一緒に渡す）
+3. 返ってきた JSON をファイルに保存し、インポート画面で取り込む（差分として反映）
+4. 「要確認をレビュー」で mismatch / needs_review だけを見直す
+
+AIは公式解答を見ずに独立に解き、最後に照合します。不一致のときに公式解答へ合わせた理由を後付けしないよう、プロンプトで禁止しています。
+
 ## 検証
 - **エラー（取り込まない）**: 必須欠落、ID重複（ファイル内）、正解番号不正、選択肢不足・同一選択肢、法令基準日なし・不正日付、課目不明
 - **警告（取り込む）**: 解説・ポイント不足、既定値で補完、過去問の出典不足、基準日が設定より古いのに「確認済み」

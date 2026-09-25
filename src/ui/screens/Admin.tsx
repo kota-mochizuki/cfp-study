@@ -2,8 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '../../app/store';
 import { sessionPath, startSession } from '../../app/actions';
-import type { LawFlag, Question, QuestionStatus, SourceType, SubjectId } from '../../domain/types';
-import { LAW_FLAGS, QUESTION_TYPES, SOURCE_TYPES, SUBJECTS, SUBJECT_MAP } from '../../domain/subjects';
+import type { CaseGroup, LawFlag, Question, QuestionStatus, SourceType, SubjectId, VerificationStatus } from '../../domain/types';
+import { LAW_FLAGS, QUESTION_TYPES, SOURCE_TYPES, SUBJECTS, SUBJECT_MAP, VERIFICATION } from '../../domain/subjects';
+import { buildAiPrompt } from '../../data/aiPrompt';
+import { explanationChecklist, isExplained } from '../../data/quality';
 import { db } from '../../data/db';
 import { commitImport, csvTemplate, parseFile, previewImport, toCsv, type ImportPreview } from '../../data/importer';
 import { deleteQuestion, getQuestion, getQuestions, saveQuestion, searchQuestions } from '../../data/repo';
@@ -17,8 +19,10 @@ import { download } from './Settings';
 
 const PAGE = 50;
 
-interface Filters { subject: '' | SubjectId; large: string; year: string; source: '' | SourceType; difficulty: string; flag: '' | LawFlag; oldLaw: boolean; status: '' | QuestionStatus; q: string }
-const EMPTY: Filters = { subject: '', large: '', year: '', source: '', difficulty: '', flag: '', oldLaw: false, status: '', q: '' };
+interface Filters { subject: '' | SubjectId; large: string; year: string; source: '' | SourceType; difficulty: string; flag: '' | LawFlag; oldLaw: boolean; status: '' | QuestionStatus; verify: '' | VerificationStatus | 'review'; explained: '' | 'yes' | 'no'; q: string }
+const EMPTY: Filters = { subject: '', large: '', year: '', source: '', difficulty: '', flag: '', oldLaw: false, status: '', verify: '', explained: '', q: '' };
+/** 1回のAIプロンプトに入れる問題数（長すぎると品質が落ちる） */
+const AI_BATCH = 10;
 
 export default function AdminList() {
   const app = useApp();
@@ -45,6 +49,10 @@ export default function AdminList() {
     if (f.flag && m.lawFlag !== f.flag) return false;
     if (f.oldLaw && m.lawDate >= app.settings.lawBaseDate) return false;
     if (f.status && m.status !== f.status) return false;
+    const v = m.verification ?? 'unverified';
+    if (f.verify === 'review' ? !(v === 'needs_review' || v === 'mismatch') : f.verify && v !== f.verify) return false;
+    if (f.explained === 'yes' && !m.explained) return false;
+    if (f.explained === 'no' && m.explained) return false;
     if (textHits && !textHits.has(m.id)) return false;
     return true;
   }).sort((a, b) => a.id.localeCompare(b.id)), [app.metas, f, textHits, app.nodeMap, app.settings.lawBaseDate]);
@@ -64,6 +72,17 @@ export default function AdminList() {
     }
   }
 
+  /** 絞り込み中の未完成の問題から AI_BATCH 問ぶんの解説生成プロンプトを書き出す */
+  async function exportPrompt() {
+    const ids = filtered.filter((m) => !m.explained).slice(0, AI_BATCH).map((m) => m.id);
+    const qs = [...(await getQuestions(ids.length ? ids : filtered.slice(0, AI_BATCH).map((m) => m.id))).values()];
+    const gids = [...new Set(qs.map((q) => q.case_group_id).filter(Boolean) as string[])];
+    const groups = new Map((await db.caseGroups.bulkGet(gids)).filter((g): g is CaseGroup => !!g).map((g) => [g.id, g]));
+    const text = buildAiPrompt(qs, groups);
+    try { await navigator.clipboard.writeText(text); } catch { /* クリップボード不可ならファイルのみ */ }
+    download(`ai-explain-${qs[0]?.question_id ?? 'batch'}.md`, text, 'text/markdown');
+  }
+
   const pages = Math.ceil(filtered.length / PAGE);
   return <main className="page admin">
     <PageHeader title="問題管理" back="/settings" right={<Link to="/admin/new" className="icon-btn" aria-label="問題を追加">＋</Link>} />
@@ -77,14 +96,18 @@ export default function AdminList() {
         <select value={f.difficulty} onChange={(e) => set({ difficulty: e.target.value })}><option value="">難易度：すべて</option>{[1, 2, 3, 4, 5].map((d) => <option key={d} value={d}>難易度{d}</option>)}</select>
         <select value={f.flag} onChange={(e) => set({ flag: e.target.value as Filters['flag'] })}><option value="">法改正：すべて</option>{Object.entries(LAW_FLAGS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
         <select value={f.status} onChange={(e) => set({ status: e.target.value as Filters['status'] })}><option value="">状態：すべて</option><option value="active">公開</option><option value="draft">下書き</option><option value="archived">アーカイブ</option></select>
+        <select value={f.verify} onChange={(e) => set({ verify: e.target.value as Filters['verify'] })}><option value="">検証：すべて</option>{Object.entries(VERIFICATION).map(([k, v]) => <option key={k} value={k}>{v}</option>)}<option value="review">要確認＋不一致</option></select>
+        <select value={f.explained} onChange={(e) => set({ explained: e.target.value as Filters['explained'] })}><option value="">解説：すべて</option><option value="yes">解説完成</option><option value="no">解説未完成</option></select>
         <label className="check"><input type="checkbox" checked={f.oldLaw} onChange={(e) => set({ oldLaw: e.target.checked })} />基準日 {app.settings.lawBaseDate} より古い</label>
       </div>
       <div className="section-head"><span className="muted">{filtered.length}問</span>
-        <span className="btn-row"><button className="btn-secondary sm" onClick={() => exportFiltered('csv')}>CSV出力</button><button className="btn-secondary sm" onClick={() => exportFiltered('json')}>JSON出力</button><Link className="btn-secondary sm" to="/admin/import">インポート</Link></span></div>
+        <span className="btn-row"><button className="btn-secondary sm" onClick={() => set({ ...EMPTY, verify: 'review' })}>要確認をレビュー</button>
+          <button className="btn-secondary sm" disabled={!filtered.length} onClick={exportPrompt}>AI解説プロンプト（{Math.min(AI_BATCH, filtered.length)}問）</button>
+          <button className="btn-secondary sm" onClick={() => exportFiltered('csv')}>CSV出力</button><button className="btn-secondary sm" onClick={() => exportFiltered('json')}>JSON出力</button><Link className="btn-secondary sm" to="/admin/import">インポート</Link></span></div>
     </section>
     {rows.length === 0 ? <Empty>該当する問題がありません</Empty> : <ul className="admin-list">
       {rows.map((q) => <li key={q.question_id}><Link to={`/admin/q/${encodeURIComponent(q.question_id)}`}>
-        <div className="admin-row-head"><code>{q.question_id}</code><span className={`flag flag-${q.law_revision_flag}`}>{LAW_FLAGS[q.law_revision_flag]}</span>{q.status !== 'active' && <span className="flag">{q.status}</span>}</div>
+        <div className="admin-row-head"><code>{q.question_id}</code><span className={`flag flag-${q.law_revision_flag}`}>{LAW_FLAGS[q.law_revision_flag]}</span><span className={`flag vf-${q.verification_status ?? 'unverified'}`}>{VERIFICATION[q.verification_status ?? 'unverified']}</span>{!app.metaMap.get(q.question_id)?.explained && <span className="flag">解説未完成</span>}{q.status !== 'active' && <span className="flag">{q.status}</span>}</div>
         <span className="muted">{SUBJECT_MAP[q.subject].short}・{app.nodeMap.get(q.topic_id)?.name ?? q.topic}・{SOURCE_TYPES[q.source_type]}{q.source_year ? ` ${q.source_year}` : ''}・難{q.difficulty}・{q.law_reference_date}</span>
         <span className="admin-text">{q.question_text.slice(0, 70)}</span>
       </Link></li>)}
@@ -96,7 +119,7 @@ export default function AdminList() {
 type Form = Record<(typeof ALL_COLUMNS)[number], string>;
 const toForm = (q?: Question): Form => Object.fromEntries(ALL_COLUMNS.map((c) => {
   const v = q?.[c as keyof Question];
-  return [c, Array.isArray(v) ? v.join(';') : v == null ? '' : String(v)];
+  return [c, Array.isArray(v) ? v.join(c === 'calculation_steps' ? '\n' : ';') : v == null ? '' : String(v)];
 })) as Form;
 
 export function AdminEdit() {
@@ -166,6 +189,8 @@ export function AdminEdit() {
 
   return <main className="page admin-edit">
     <PageHeader title={isNew ? '問題を追加' : '問題を編集'} back="/admin" />
+    {orig && <section className="card"><h3>解説の品質チェック{isExplained(orig) ? '（解説完成）' : '（未完成：出題はできるが「解説準備中」と表示）'}</h3>
+      <ul className="checklist">{explanationChecklist(orig).map((c) => <li key={c.key} className={c.ok ? 'ok' : 'ng'}>{c.ok ? '☑' : '☐'} {c.label}</li>)}</ul></section>}
     {errors.length > 0 && <ul className="msg-list err">{errors.map((e) => <li key={e}>{e}</li>)}</ul>}
     {warnings.length > 0 && <ul className="msg-list warn">{warnings.map((e) => <li key={e}>{e}</li>)}</ul>}
     <section className="card form">
@@ -187,7 +212,10 @@ export function AdminEdit() {
     </section>
     <section className="card form">
       <h3>解説</h3>
-      {field('key_point', 'この問題のポイント（1〜3行）', { area: true })}
+      {field('explanation_short', '一言解説（回答直後に表示・40字程度）')}
+      {field('key_point', 'POINT（1〜3個・改行区切り）', { area: true })}
+      {field('trap', 'TRAP（ひっかけがある場合のみ）', { area: true })}
+      {field('calculation_steps', '計算過程（1行1ステップ：何を求めるか／使う数値／式／計算／照合）', { area: true })}
       {field('explanation', '解説', { area: true })}
       {(['a', 'b', 'c', 'd'] as const).map((k, i) => <div key={k}>{field(`explanation_${k}`, `選択肢${i + 1}の解説`, { area: true })}</div>)}
       {field('related_topics', '関連論点（;区切り）')}
@@ -202,13 +230,16 @@ export function AdminEdit() {
       {select('status', '状態', [['active', '公開'], ['draft', '下書き'], ['archived', 'アーカイブ']])}
     </section>
     <section className="card form grid2">
-      <h3>出典・法令</h3>
+      <h3>出典・法令・検証</h3>
       {select('source_type', '出典', Object.entries(SOURCE_TYPES))}
       {field('source_year', '年度')}
       {field('source_exam', '回（1/2）')}
       {field('source_question_number', '問題番号')}
       {field('law_reference_date', '法令基準日（YYYY-MM-DD）')}
       {select('law_revision_flag', '法改正確認', Object.entries(LAW_FLAGS))}
+      {select('verified_answer', '独立検証の答え', [['', '未検証'], ['A', '1'], ['B', '2'], ['C', '3'], ['D', '4']])}
+      {select('verification_status', '検証状態（不一致は自動判定）', Object.entries(VERIFICATION))}
+      {form.law_revision_flag === 'outdated' && field('current_rule_note', '現在の制度（旧制度問題のみ）', { area: true })}
     </section>
     <section className="card form">
       <h3>類題用（任意）</h3>
@@ -280,6 +311,7 @@ export function AdminImport() {
         <li><span>エラー（取り込まない）</span><b className={errRows.length ? 'bad' : ''}>{preview.errors}行</b></li>
         <li><span>警告あり（取り込む）</span><b>{preview.warnings}行</b></li>
         <li><span>既存IDと重複</span><b>{preview.existing}行</b></li>
+        {preview.patches > 0 && <li><span>既存問題への追記（解説など）</span><b>{preview.patches}行</b></li>}
         <li><span>新しく作られる論点ノード</span><b>{preview.newNodes.length}</b></li>
       </ul>
       {preview.existing > 0 && <div className="chips"><span className="muted">既存IDは</span>

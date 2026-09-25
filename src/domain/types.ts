@@ -8,6 +8,8 @@ export type SourceType = 'official_past_exam' | 'original' | 'ai_variant';
 /** verified=法改正確認済み / needs_check=要確認 / outdated=旧制度問題 */
 export type LawFlag = 'verified' | 'needs_check' | 'outdated';
 export type QuestionStatus = 'active' | 'draft' | 'archived';
+/** 解答の検証状態: unverified=未検証 / verified=公式解答と独立検証が一致 / needs_review=要確認 / mismatch=公式解答と不一致 */
+export type VerificationStatus = 'unverified' | 'verified' | 'needs_review' | 'mismatch';
 
 export interface Question {
   question_id: string;
@@ -26,12 +28,20 @@ export interface Question {
   choice_c: string;
   choice_d: string;
   correct_answer: ChoiceKey;
+  /** 詳細解説（explanation_detailed に相当） */
   explanation: string;
+  /** 回答直後に出す一言解説 */
+  explanation_short?: string;
   explanation_a?: string;
   explanation_b?: string;
   explanation_c?: string;
   explanation_d?: string;
+  /** POINT。1〜3個を改行または「・」区切りで */
   key_point: string;
+  /** ひっかけ注意（ある問題のみ） */
+  trap?: string;
+  /** 計算過程（STEP 1〜5 程度） */
+  calculation_steps?: string[];
   related_topics: string[];
   /** 1(易)〜5(難) */
   difficulty: number;
@@ -52,7 +62,13 @@ export interface Question {
   /** 類題: 変更可能なパラメータ（数値・人物・条件・問い方）の記述 */
   variant_spec?: string;
   law_reference_date: string; // YYYY-MM-DD
+  /** law_revision_status に相当（verified / needs_check=needs_review / outdated=old_rule） */
   law_revision_flag: LawFlag;
+  /** 旧制度問題: 現在の制度ではどうなるか（出題当時の正解とは分けて表示） */
+  current_rule_note?: string;
+  /** 公式解答は correct_answer。こちらは独立に解き直した答え */
+  verified_answer?: ChoiceKey;
+  verification_status?: VerificationStatus;
   tags: string[];
   /** 原本の資料・図表の画像（data URL）。表やグラフを文字にできない過去問用 */
   images?: string[];
@@ -77,6 +93,9 @@ export interface QuestionMeta {
   status: QuestionStatus;
   caseGroupId?: string;
   textLength: number;
+  verification?: VerificationStatus;
+  /** 解説の品質チェックをすべて満たすか */
+  explained?: boolean;
 }
 
 export interface CaseGroup {
@@ -151,6 +170,8 @@ export interface Card {
   wScore: number;
   wTotal: number;
   wAt: number | null;
+  /** 誤答で選んだ選択肢の回数（同じ誤概念の繰り返しを見つける） */
+  wrongChoices?: Partial<Record<ChoiceKey, number>>;
 }
 
 export interface SessionItem {

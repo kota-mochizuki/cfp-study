@@ -1,4 +1,5 @@
 import Dexie, { type Table } from 'dexie';
+import { toMeta } from './taxonomy';
 import type {
   Attempt, Card, CaseGroup, DevLog, Idea, Question, QuestionMeta, Session, TaxNode, UxEvent, WeeklyReview,
 } from '../domain/types';
@@ -40,6 +41,20 @@ export class CfpDB extends Dexie {
       devLog: '++id, at',
       ideas: '++id, createdAt',
       reviews: '++id, at',
+    });
+    // v2: 解説・検証フィールドの追加。問題本文と回答履歴はそのまま。
+    // 出題用インデックス（qmeta）を作り直し、回答履歴から「誤答で選んだ選択肢の回数」を復元する。
+    this.version(2).stores({}).upgrade(async (tx) => {
+      const questions = await tx.table('questions').toArray();
+      await tx.table('qmeta').bulkPut(questions.map((q) => toMeta({ ...q, verification_status: q.verification_status ?? 'unverified' })));
+      const counts = new Map<string, Record<string, number>>();
+      await tx.table('attempts').each((a: Attempt) => {
+        if (a.correct || !a.selected) return;
+        const m = counts.get(a.questionId) ?? {};
+        m[a.selected] = (m[a.selected] ?? 0) + 1;
+        counts.set(a.questionId, m);
+      });
+      await tx.table('cards').toCollection().modify((c: Card) => { const m = counts.get(c.questionId); if (m) c.wrongChoices = m; });
     });
   }
 }

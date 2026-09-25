@@ -12,6 +12,7 @@ export interface ImportPreview {
   errors: number;
   warnings: number;
   existing: number;
+  patches: number;
 }
 
 /** CSV（ヘッダー行必須・UTF-8）または JSON（配列 / {questions, case_groups}）を行データにする */
@@ -36,14 +37,32 @@ export function parseFile(text: string, filename: string): { rows: RawRow[]; cas
 
 export async function previewImport(rows: RawRow[], extraCaseGroups: CaseGroup[], lawBaseDate: string): Promise<ImportPreview> {
   const [nodes, ids] = await Promise.all([db.nodes.toArray(), db.qmeta.toCollection().primaryKeys()]);
-  return validateRows(rows, extraCaseGroups, nodes, new Set(ids), lawBaseDate);
+  const existingIds = new Set(ids);
+  const patchIds = rows.filter(isPatchRow).map((r) => String(r.question_id)).filter((id) => existingIds.has(id));
+  const existing = new Map((await db.questions.bulkGet(patchIds)).filter((q): q is Question => !!q).map((q) => [q.question_id, q]));
+  return validateRows(rows, extraCaseGroups, nodes, existingIds, lawBaseDate, existing);
 }
 
-export function validateRows(rows: RawRow[], extraCaseGroups: CaseGroup[], nodes: TaxNode[], existingIds: Set<string>, lawBaseDate: string): ImportPreview {
+/** question_id と一部の項目だけの行 = 既存問題への差分（解説の追加など） */
+export const isPatchRow = (r: RawRow) => !!r.question_id && !String(r.question_text ?? '').trim();
+
+/** 既存の問題を行データに戻す（差分行とマージするため） */
+export function questionToRaw(q: Question): RawRow {
+  return { ...q } as unknown as RawRow;
+}
+
+export function validateRows(rows: RawRow[], extraCaseGroups: CaseGroup[], nodes: TaxNode[], existingIds: Set<string>, lawBaseDate: string, existing: Map<string, Question> = new Map()): ImportPreview {
   const taxonomy = new TaxonomyIndex(nodes);
   const seen = new Set<string>();
-  // CSV は1行目がヘッダーなので、データ行はファイル上 2 行目から
-  const results = rows.map((r, i) => validateRow(r, i + 2, { taxonomy, existingIds, lawBaseDate }, seen));
+  // CSV は1行目がヘッダーなので、データ行はファイル上 2 行目から。差分行は既存の問題に重ねて検証する
+  const results = rows.map((r, i) => {
+    const base = isPatchRow(r) ? existing.get(String(r.question_id)) : undefined;
+    const merged = base ? { ...questionToRaw(base), ...Object.fromEntries(Object.entries(r).filter(([, v]) => v !== '' && v != null)) } : r;
+    const res = validateRow(merged, i + 2, { taxonomy, existingIds, lawBaseDate }, seen);
+    if (base && res.question) res.question = { ...res.question, topic_id: base.topic_id, images: res.question.images ?? base.images, created_at: base.created_at };
+    if (base) res.patch = true;
+    return res;
+  });
   const groups = new Map(extraCaseGroups.map((g) => [g.id, g]));
   for (const r of results) if (r.caseGroup) groups.set(r.caseGroup.id, r.caseGroup);
   return {
@@ -53,13 +72,14 @@ export function validateRows(rows: RawRow[], extraCaseGroups: CaseGroup[], nodes
     ok: results.filter((r) => r.question).length,
     errors: results.filter((r) => r.errors.length).length,
     warnings: results.filter((r) => r.warnings.length && !r.errors.length).length,
-    existing: results.filter((r) => r.question && r.exists).length,
+    existing: results.filter((r) => r.question && r.exists && !r.patch).length,
+    patches: results.filter((r) => r.question && r.patch).length,
   };
 }
 
 /** 検証済みの行を投入。500件ずつのチャンクで 1万件規模にも対応 */
 export async function commitImport(p: ImportPreview, onExisting: 'overwrite' | 'skip', onProgress?: (done: number, total: number) => void): Promise<number> {
-  const qs: Question[] = p.results.filter((r) => r.question && (!r.exists || onExisting === 'overwrite')).map((r) => r.question!);
+  const qs: Question[] = p.results.filter((r) => r.question && (!r.exists || r.patch || onExisting === 'overwrite')).map((r) => r.question!);
   const usedNodeIds = new Set(qs.map((q) => q.topic_id));
   // 使われる新規ノードとその祖先だけを登録
   const byId = new Map(p.newNodes.map((n) => [n.id, n]));

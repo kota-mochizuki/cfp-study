@@ -14,7 +14,7 @@ const MODES: ModeDef[] = [
   { mode: 'surprise', title: 'Surprise 5', desc: '何が出るかは開始まで秘密。裏で復習も混ざる', count: 5, group: 'auto' },
   { mode: 'challenge', title: 'Challenge 5', desc: '今の実力で、この5問突破できる？', count: 5, group: 'auto' },
   { mode: 'weak', title: '苦手攻略', desc: '苦手論点・誤答の多い問題から', count: 10, group: 'focus' },
-  { mode: 'wrong', title: '間違えた問題だけ', desc: '誤答履歴から出題', count: 20, group: 'focus' },
+  { mode: 'wrong', title: '🔥 REVENGE', desc: '間違えた問題にリベンジ。同じ誤答を繰り返す問題を優先', count: 20, group: 'focus' },
   { mode: 'calc', title: '計算特訓', desc: '計算問題だけを反復', count: 10, group: 'focus' },
   { mode: 'unanswered', title: '未回答', desc: 'まだ一度も解いていない問題', count: 10, group: 'focus' },
   { mode: 'random', title: 'ランダム', desc: '全範囲からランダム', count: 10, group: 'focus' },
