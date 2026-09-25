@@ -58,5 +58,5 @@ export const LEVEL_LABELS = ['未回答', '苦手', '学習中', '定着途中',
 export const MODE_LABELS: Record<SessionMode, string> = {
   daily: '今日の最適学習', subject: '科目別', weak: '苦手攻略', wrong: 'REVENGE', unanswered: '未回答',
   random: 'ランダム', test10: '10問テスト', mock: '本番模試', surprise: 'Surprise 5', challenge: 'Challenge 5',
-  calc: '計算特訓', diagnostic: '実力診断', favorites: 'お気に入り', flagged: 'あとで復習', single: '1問',
+  calc: '計算特訓', diagnostic: '実力診断', favorites: 'お気に入り', flagged: 'あとで復習', single: '1問', boss: 'BOSS',
 };

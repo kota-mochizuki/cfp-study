@@ -21,7 +21,7 @@ const TABS = [
 /** 問題画面・模試では下部タブを消して集中させる */
 function TabBar() {
   const { pathname } = useLocation();
-  if (/^\/(play|mock|result|mock-result)\//.test(pathname) || pathname.startsWith('/admin')) return null;
+  if (/^\/(play|mock|result|mock-result)(\/|$)/.test(pathname) || pathname.startsWith('/admin')) return null;
   return <nav className="tabbar" aria-label="メイン">
     {TABS.map((t) => <NavLink key={t.to} to={t.to} end={t.to === '/'} className={({ isActive }) => `tab ${isActive ? 'active' : ''}`}>
       <Icon name={t.icon} /><span>{t.label}</span>

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Card, CaseGroup, Question, Session, TaxNode } from '../domain/types';
 import { LadderScheduler, emptyCard, levelOf } from '../engine/scheduler';
 import { computeStats, questionMastery, replayCards, weakest } from '../engine/mastery';
-import { buildSession, countForMinutes } from '../engine/sessionBuilder';
+import { BOSS_MIN_MASTERY, bossItems, buildSession, countForMinutes } from '../engine/sessionBuilder';
 import { followUp, insertFollowUp } from '../engine/adaptive';
 import { answerInsight, growth } from '../engine/insights';
 import { validateRows } from '../data/importer';
@@ -242,5 +242,35 @@ describe('adaptive & insights', () => {
     expect(g.items[0].after).toBeGreaterThan(g.items[0].before);
     expect(g.weakAfter).toBeLessThan(g.weakBefore);
     void s;
+  });
+});
+
+describe('BOSS', () => {
+  const ctxOf = () => {
+    const { metas, nodes, nodeMap } = sample();
+    const active = metas.filter((m) => m.lawFlag !== 'outdated');
+    const cards = new Map<string, Card>();
+    return { metas: active, cards, stats: computeStats({ nodes, metas: active, cards, now: NOW }), nodes: nodeMap, now: NOW, examDate: null };
+  };
+
+  it('BOSS は習熟した論点の難問だけ。未習熟・正解済み・難易度不足は出ない', () => {
+    const base = ctxOf();
+    const [a, b] = base.metas;
+    const metas = base.metas.map((m) => (m.id === a.id || m.id === b.id ? { ...m, difficulty: 5 } : { ...m, difficulty: Math.min(m.difficulty, 3) }));
+    const stats = new Map(base.stats);
+    const st = (id: string, answered: number, mastery: number | null) => stats.set(id, { ...stats.get(id)!, answered, mastery });
+    // 未習熟の論点ではまだ出ない
+    st(a.topicId, 5, BOSS_MIN_MASTERY - 0.1);
+    st(b.topicId, 1, 0.9);
+    expect(bossItems({ ...base, metas, stats }, 3)).toHaveLength(0);
+    // 3問以上・習熟度60%以上で出現し、理由と boss フラグが付く
+    st(a.topicId, 3, 0.8);
+    const items = bossItems({ ...base, metas, stats }, 3);
+    expect(items.map((i) => i.questionId)).toContain(a.id);
+    expect(items.every((i) => i.boss && i.reason.startsWith('BOSS：'))).toBe(true);
+    // 前回正解した問題は出ない
+    const s = new LadderScheduler();
+    const cards = new Map([[a.id, s.review(emptyCard(a.id), { correct: true, at: NOW - 2 * DAY, timeMs: 20_000, difficulty: 5, avgTimeMs: AVG })]]);
+    expect(bossItems({ ...base, metas, stats, cards }, 3).map((i) => i.questionId)).not.toContain(a.id);
   });
 });

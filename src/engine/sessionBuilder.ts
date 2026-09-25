@@ -153,6 +153,10 @@ export function buildSession(ctx: BuildContext, opt: BuildOptions): Plan {
       ];
       return finalize(pickOrdered(ordered, n, 'CORE', ctx), [], n, ctx, 'CORE', rand);
     }
+    case 'boss': {
+      const items = bossItems(ctx, n);
+      return { items, exploreShare: 0, counts: countSlots(items) };
+    }
     case 'diagnostic':
       return finalize(diagnostic(all, n, rand, ctx), [], n, ctx, 'DISCOVERY', rand);
     case 'surprise':
@@ -357,4 +361,49 @@ function diagnostic(all: Cand[], n: number, rand: () => number, ctx: BuildContex
     }
   }
   return shuffle(out, rand);
+}
+
+/** BOSS の出現条件（docs/04_pcm_feature_gate.md） */
+export const BOSS_MIN_ANSWERED = 3;
+export const BOSS_MIN_MASTERY = 0.6;
+export const BOSS_MIN_DIFFICULTY = 4;
+
+/**
+ * BOSS QUESTION の候補。論点を一定以上学習して習熟度が上がったところで、
+ * その論点の難問（まだ正解していない or 前回誤答）を出す。
+ * 並び順: 難易度 → 計算・事例 → 論点の習熟度が高い順（学んだ論点ほど「総仕上げ」になる）
+ */
+export function bossCandidates(ctx: BuildContext, exclude: Set<string> = new Set()): QuestionMeta[] {
+  const today0 = startOfDay(ctx.now);
+  const kind = (q: QuestionMeta) => (q.type === 'calculation' ? 2 : q.type === 'case' ? 1 : 0);
+  return ctx.metas
+    .filter((q) => {
+      if (exclude.has(q.id) || q.difficulty < BOSS_MIN_DIFFICULTY) return false;
+      const st = ctx.stats.get(q.topicId);
+      if (!st || st.answered < BOSS_MIN_ANSWERED || st.mastery == null || st.mastery < BOSS_MIN_MASTERY) return false;
+      const card = ctx.cards.get(q.id);
+      if (card?.lastResult === true) return false;
+      return (card?.lastAnsweredAt ?? 0) < today0;
+    })
+    .sort((a, b) => b.difficulty - a.difficulty || kind(b) - kind(a)
+      || (ctx.stats.get(b.topicId)!.mastery! - ctx.stats.get(a.topicId)!.mastery!));
+}
+
+export function bossReason(q: QuestionMeta, ctx: BuildContext): string {
+  const st = ctx.stats.get(q.topicId);
+  const name = ctx.nodes.get(q.topicId)?.name ?? '';
+  return `BOSS：「${name}」の習熟度が${Math.round((st?.mastery ?? 0) * 100)}%に到達。この論点の難問です`;
+}
+
+/** 1論点から1問ずつ、最大 n 問 */
+export function bossItems(ctx: BuildContext, n: number, exclude?: Set<string>): SessionItem[] {
+  const seen = new Set<string>();
+  const out: SessionItem[] = [];
+  for (const q of bossCandidates(ctx, exclude)) {
+    if (out.length >= n) break;
+    if (seen.has(q.topicId)) continue;
+    seen.add(q.topicId);
+    out.push({ questionId: q.id, slot: 'CHALLENGE', track: 'MASTER', reason: bossReason(q, ctx), boss: true });
+  }
+  return out;
 }

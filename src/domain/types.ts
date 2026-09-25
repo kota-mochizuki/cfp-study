@@ -118,7 +118,7 @@ export interface TaxNode {
 
 export type SessionMode =
   | 'daily' | 'subject' | 'weak' | 'wrong' | 'unanswered' | 'random' | 'test10' | 'mock'
-  | 'surprise' | 'challenge' | 'calc' | 'diagnostic' | 'favorites' | 'flagged' | 'single';
+  | 'surprise' | 'challenge' | 'calc' | 'diagnostic' | 'favorites' | 'flagged' | 'single' | 'boss';
 
 /** 内部分類: CORE=復習・弱点 / CHALLENGE=少し難しい / DISCOVERY=新規論点 / SURPRISE=ランダム */
 export type Slot = 'CORE' | 'CHALLENGE' | 'DISCOVERY' | 'SURPRISE';
@@ -182,6 +182,8 @@ export interface SessionItem {
   /** Adaptive で差し込まれた問題 */
   followOf?: string;
   followStage?: 1 | 2;
+  /** BOSS QUESTION（習熟した論点の難問） */
+  boss?: boolean;
 }
 
 export interface SessionAnswer {
@@ -229,7 +231,7 @@ export interface Settings {
 
 export interface UxEvent {
   id?: number;
-  type: 'mode_selected' | 'session_completed' | 'session_abandoned' | 'time_selected' | 'screen';
+  type: 'mode_selected' | 'session_completed' | 'session_abandoned' | 'time_selected' | 'screen' | 'boss_accepted';
   at: number;
   payload: Record<string, unknown>;
 }

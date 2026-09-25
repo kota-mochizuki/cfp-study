@@ -4,7 +4,7 @@ import { useApp } from '../../app/store';
 import { MOCK_COUNT, MOCK_MINUTES, sessionPath, startSession } from '../../app/actions';
 import type { ChoiceKey, Question, Session, SubjectId } from '../../domain/types';
 import { SUBJECTS, SUBJECT_MAP } from '../../domain/subjects';
-import { getQuestions, getSession, logEvent, recordAnswer, saveSession, sessionAttempts } from '../../data/repo';
+import { completedMocks, getQuestions, getSession, logEvent, recordAnswer, saveSession, sessionAttempts } from '../../data/repo';
 import { fmtClock, fmtDuration } from '../../lib/time';
 import { Choices, QuestionBody, choiceOrder } from '../QuestionParts';
 import { ReviewItem } from './Result';
@@ -143,10 +143,14 @@ export function MockResult() {
   const app = useApp();
   const [session, setSession] = useState<Session>();
   const [qs, setQs] = useState<Map<string, Question>>(new Map());
+  const [prevBest, setPrevBest] = useState<number | null>(null);
   useEffect(() => {
     getSession(id).then(async (s) => {
       if (!s) return;
       setSession(s);
+      // 同じ課目の過去の模試の最高正答数（今回より前に始めたもの）
+      const prev = (await completedMocks()).filter((m) => m.id !== s.id && m.subject === s.subject && m.startedAt < s.startedAt);
+      setPrevBest(prev.length ? Math.max(...prev.map((m) => Object.values(m.answers).filter((a) => a.correct).length)) : null);
       setQs(await getQuestions(s.items.map((i) => i.questionId)));
       await sessionAttempts(id);
     });
@@ -174,6 +178,7 @@ export function MockResult() {
     <PageHeader title="模試の結果" back="/" />
     <section className="card score-card">
       <div className="score"><b>{correct * 2}</b><span>点 / {total * 2}点</span></div>
+      {prevBest != null && correct > prevBest && <p className="new-best celebrate" role="status">🏆 NEW BEST！ 前回までの最高 {prevBest * 2}点 → 今回 {correct * 2}点</p>}
       <div className="muted">正答率 {pct(correct / total)}・{correct}/{total}問・所要時間 {fmtDuration((session.endedAt ?? 0) - session.startedAt)}</div>
       <div className="passline"><Bar value={correct / total} tone={correct / total >= pass ? 'ok' : 'ng'} /><i style={{ left: `${pass * 100}%` }} /></div>
       <p className="footnote">縦線は合格目安 {pct(pass)}（過去の合格ラインは概ね50問中25〜33問）。合格を保証するものではありません。</p>

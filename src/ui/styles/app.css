@@ -422,3 +422,19 @@ details summary { cursor: pointer; font-size: 14px; padding: 8px 0; }
   .mode-grid { grid-template-columns: repeat(3, 1fr); }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* ===== PCM: MOMENTUM / BOSS / CELEBRATION（docs/04_pcm_feature_gate.md）
+   演出は CSS だけ。回答・次へ の操作は一切待たせない ===== */
+.streak { margin: 8px 0 0; font-size: 14px; font-weight: 800; letter-spacing: .04em; color: var(--accent); }
+.streak-5 { font-size: 15px; }
+.streak-10 { font-size: 17px; padding: 8px 12px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
+.boss-offer { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; padding: 10px 12px;
+  border-radius: 14px; border: 2px solid var(--accent); font-weight: 800; letter-spacing: .03em; }
+.btn-boss { border: 0; border-radius: 999px; padding: 8px 14px; font-weight: 800; color: #fff; background: linear-gradient(135deg, #7c3aed, #db2777); }
+.verdict.boss { background: linear-gradient(135deg, #7c3aed, #db2777); color: #fff; }
+.verdict.boss .verdict-main { font-size: 22px; }
+.new-best { margin: 8px 0 0; font-weight: 800; color: var(--accent); }
+.celebrate { animation: celebrate-pop .5s ease-out; }
+@keyframes celebrate-pop { 0% { transform: scale(.92); opacity: .4; } 60% { transform: scale(1.04); opacity: 1; } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .celebrate { animation: none; } }
+.mode-boss b { color: #7c3aed; }

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '../../app/store';
+import { buildContext } from '../../app/actions';
+import { bossItems } from '../../engine/sessionBuilder';
 import type { ChoiceKey, ErrorCause, Question, Session } from '../../domain/types';
 import { ERROR_CAUSES } from '../../domain/subjects';
 import { followUp, insertFollowUp } from '../../engine/adaptive';
@@ -21,6 +23,20 @@ interface Answered {
   /** 誤答の選択肢ごとの累計回数（今回を含む） */
   wrongChoices?: Partial<Record<ChoiceKey, number>>;
   revengeComplete: boolean;
+  /** このセッション内の連続正解数（今回を含む） */
+  streak: number;
+  boss: boolean;
+}
+
+/** セッション内の連続正解数（cursor の問題まで） */
+function sessionStreak(s: Session, upto: number): number {
+  let n = 0;
+  for (let i = upto; i >= 0; i--) {
+    const a = s.answers[s.items[i].questionId];
+    if (!a?.correct) break;
+    n++;
+  }
+  return n;
 }
 
 export default function Player() {
@@ -114,8 +130,28 @@ export default function Player() {
       correct, attemptId: r.attempt.id!, insight: answerInsight(r.before, correct, timeMs), suggestedCause,
       lastWrong: prev && !prev.correct && prev.selected ? prev.selected : undefined,
       wrongChoices: r.card.wrongChoices, revengeComplete: correct && (r.before?.wrongCount ?? 0) > 0,
+      streak: correct ? sessionStreak(next, next.cursor) : 0, boss: !!item.boss,
     });
     setBusy(false);
+  }
+
+  /** 5連続正解で出る「BOSSに挑む」。次の問題として BOSS を1問差し込む */
+  const bossOffer = useMemo(() => {
+    if (!session || !answered || session.feedback !== 'immediate' || answered.streak < 5 || answered.streak % 5 !== 0) return null;
+    const exclude = new Set(session.items.map((i) => i.questionId));
+    return bossItems(buildContext(app), 1, exclude)[0] ?? null;
+  }, [answered, session, app]);
+
+  async function challengeBoss() {
+    if (!session || !bossOffer) return;
+    const items = [...session.items];
+    items.splice(session.cursor + 1, 0, bossOffer);
+    const extra = await getQuestions([bossOffer.questionId]);
+    setQs((prev) => new Map([...prev, ...extra]));
+    const s = { ...session, items, cursor: session.cursor + 1, inserted: (session.inserted ?? 0) + 1 };
+    await saveSession(s);
+    await logEvent('boss_accepted', { questionId: bossOffer.questionId });
+    setSession(s);
   }
 
   async function next() {
@@ -161,7 +197,12 @@ export default function Player() {
     <Choices q={q} order={order} selected={selected} revealed={!!answered} onSelect={setSelected} />
 
     {answered && <section className="answer">
-      <Verdict answered={answered} order={order} q={q} selected={selected!} />
+      <Verdict answered={answered} order={order} q={q} selected={selected!} mastery={app.stats.get(q.topic_id)?.mastery ?? null} topicName={topicName} />
+      <Momentum streak={answered.streak} />
+      {bossOffer && <div className="boss-offer">
+        <span>⚡ CHALLENGE AVAILABLE</span>
+        <button className="btn-boss" onClick={challengeBoss}>👑 BOSSに挑む</button>
+      </div>}
       {answered.insight && !answered.revengeComplete && <p className="insight">{answered.insight}</p>}
 
       <Explanation key={q.question_id} q={q} order={order} selected={selected} openDetail={app.prefs.openExplanation[q.question_type]}
@@ -201,17 +242,28 @@ export default function Player() {
   </main>;
 }
 
-/** 正解は小さく気持ちよく、誤答は「次に倒す対象ができた」へ。REVENGE 攻略は強めに */
-function Verdict({ answered, order, q, selected }: { answered: Answered; order: ChoiceKey[]; q: Question; selected: ChoiceKey }) {
+/** 連続正解で画面のテンションを少しだけ上げる。文字だけで、待ち時間は入れない */
+function Momentum({ streak }: { streak: number }) {
+  if (streak >= 10 && streak % 10 === 0) return <p className="streak streak-10" role="status">🏆 {streak} STREAK！ ここまで連続正解</p>;
+  if (streak >= 3) return <p className={`streak ${streak >= 5 ? 'streak-5' : ''}`} role="status">🔥 {streak} STREAK{streak < 5 ? ' · ON FIRE' : ''}</p>;
+  return null;
+}
+
+/** 正解は小さく気持ちよく、誤答は「次に倒す対象ができた」へ。REVENGE は強め、BOSS 撃破は最も強く */
+function Verdict({ answered, order, q, selected, mastery, topicName }: { answered: Answered; order: ChoiceKey[]; q: Question; selected: ChoiceKey; mastery: number | null; topicName: string }) {
   const no = (k: ChoiceKey) => order.indexOf(k) + 1;
   const total = Object.values(answered.wrongChoices ?? {}).reduce((a, b) => a + (b ?? 0), 0);
   const repeats = Object.entries(answered.wrongChoices ?? {}).filter(([, n]) => (n ?? 0) >= 2) as [ChoiceKey, number][];
+  if (answered.correct && answered.boss) return <div className="verdict ok boss celebrate" role="status">
+    <div className="verdict-main"><span>BOSS CLEARED 👑</span><span className="verdict-sub">{no(q.correct_answer)}</span></div>
+    <p className="verdict-line">「{topicName}」の難問を突破{mastery != null && `・習熟度 ${Math.round(mastery * 100)}%`}</p>
+  </div>;
   if (answered.correct) return <div className={`verdict ok ${answered.revengeComplete ? 'revenge' : ''}`} role="status">
     <div className="verdict-main"><span>{answered.revengeComplete ? 'REVENGE COMPLETE ⚡' : '✓ CORRECT'}</span><span className="verdict-sub">{no(q.correct_answer)}</span></div>
     {answered.revengeComplete && answered.lastWrong && <p className="verdict-line">前回：{no(answered.lastWrong)}　→　今回：{no(q.correct_answer)} ✓</p>}
   </div>;
   return <div className="verdict ng" role="status">
-    <div className="verdict-main"><span>REVENGE ADDED</span><span className="verdict-sub">明日もう一度</span></div>
+    <div className="verdict-main"><span>{answered.boss ? 'BOSS 未撃破 — REVENGE ADDED' : 'REVENGE ADDED'}</span><span className="verdict-sub">明日もう一度</span></div>
     <p className="verdict-line">あなたの回答：{no(selected)}　／　正解：{no(q.correct_answer)}</p>
     {answered.lastWrong && <p className="verdict-line muted">LAST TIME あなたは {no(answered.lastWrong)} を選択しました</p>}
     {total >= 2 && <p className="verdict-line muted">この問題は{total}回間違えています。{repeats.map(([k, n]) => `${no(k)}を選択：${n}回`).join('・')}
