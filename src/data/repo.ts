@@ -11,8 +11,8 @@ import { SAMPLE_QUESTIONS } from './seed/sampleQuestions';
 
 export const DEFAULT_SETTINGS: Settings = {
   examDate: '2027-06-13',
-  // 第1回（6月）試験は前年10月1日施行法令が基準となるのが通例。試験要項の公表後に要確認
-  lawBaseDate: '2026-10-01',
+  // 2027年度第1回（6/13・6/20）の法令基準日は 2027年1月1日（日本FP協会 試験概要で確認）
+  lawBaseDate: '2027-01-01',
   passLineRatio: 0.56,
   simpleHome: false,
   shuffleChoices: false,

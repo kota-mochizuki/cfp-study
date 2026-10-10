@@ -120,3 +120,44 @@ describe('UI スモーク', () => {
     await waitFor(() => expect(screen.getByText('分野別正答率')).toBeTruthy());
   }, 30_000);
 });
+
+describe('講義', () => {
+  it('本文を表示し、確認問題は回答するまで解説を隠す。回答は履歴に残る', async () => {
+    const q = (n: number) => ({
+      question_id: `LEC-L001-Q${n}`, subject: 'finance', category_large: 'ライフプランと金融資産運用設計', category_middle: 'ライフプランと目標リターンの算出',
+      topic: 'ライフプランと目標リターンの算出', question_text: `確認問題その${n}`, choice_a: `選択肢あ${n}`, choice_b: `選択肢い${n}`, choice_c: `選択肢う${n}`, choice_d: `選択肢え${n}`,
+      correct_answer: 'B', verified_answer: 'B', verification_status: 'verified', explanation: '詳しい解説', explanation_short: '一言解説です',
+      explanation_a: '× 誤り。正しくは い である。', explanation_b: '○ 正しい記述である。', explanation_c: '× 誤り。正しくは い である。', explanation_d: '× 誤り。正しくは い である。',
+      key_point: 'ポイント', law_reference_date: '2027-01-01', law_revision_flag: 'verified', source_type: 'original', tags: '講義;L001',
+    });
+    const lecture = {
+      id: 'L001', date: '2026-10-11', slot: 'am', subject: 'finance', title: '目標リターンの算出', minutes: 35, large: 'ライフプランと金融資産運用設計',
+      middle: ['ライフプランと目標リターンの算出'], goals: ['必要な利回りを求められる'], map: '```\n体系図\n```', sections: [{ title: '6つの係数', body: '### 終価係数\n本文です' }],
+      traps: '期首払いに注意', questions: [1, 2, 3, 4, 5].map(q), sources: [{ name: '日本FP協会', url: 'https://www.jafp.or.jp/' }], lawBaseDate: '2027-01-01', verifiedOn: '2026-10-10', unconfirmed: [],
+    };
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async (url: string) => new Response(JSON.stringify(String(url).endsWith('index.json') ? [lecture] : lecture))) as typeof fetch;
+    try {
+      const { bootstrap } = await import('../data/bootstrap');
+      await bootstrap();
+      window.location.hash = '#/lecture/L001';
+      render(<App />);
+      expect(await screen.findByText('目標リターンの算出', {}, { timeout: 5000 })).toBeTruthy();
+      expect(screen.getByText('終価係数').tagName).toBe('H4');
+      expect(screen.queryByText('一言解説です')).toBeNull();
+      const first = screen.getAllByRole('radiogroup', { name: '選択肢' })[0];
+      fireEvent.click(within(first).getAllByRole('radio')[2]);
+      fireEvent.click(screen.getAllByRole('button', { name: '回答する' })[0]);
+      expect((await screen.findByRole('status', {}, { timeout: 5000 })).textContent).toContain('× 不正解（正解：2）');
+      expect(screen.getByText('一言解説です')).toBeTruthy();
+      expect(screen.getAllByRole('button', { name: '回答する' })).toHaveLength(4);
+      await waitFor(async () => expect((await db.attempts.toArray()).map((a) => [a.questionId, a.selected, a.correct])).toEqual([['LEC-L001-Q1', 'C', false]]));
+      const { buildLectureReport } = await import('../data/lectures');
+      const report = await buildLectureReport(await db.attempts.toArray());
+      expect(report).toContain('金融 0/1');
+      expect(report).toContain('- LEC-L001-Q1｜ライフプランと目標リターンの算出｜選んだ答え 3・正解 2｜誤答1回・直近は不正解');
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  });
+});

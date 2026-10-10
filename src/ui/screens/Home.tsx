@@ -10,6 +10,7 @@ import { growth } from '../../engine/insights';
 import { activeSession, logEvent } from '../../data/repo';
 import { daysBetween, fmtDuration, parseYmd } from '../../lib/time';
 import { Bar, Icon, pct } from '../components';
+import { LectureCard } from './Lectures';
 
 export default function Home() {
   const app = useApp();
@@ -72,6 +73,8 @@ export default function Home() {
       <button className="btn-primary btn-xl" onClick={start} disabled={!plan.items.length || starting}>学習を始める</button>
       {!settings.diagnosticDone && (app.attempts?.length ?? 0) < 20 && <Link className="subtle-link" to="/practice?diag=1">初めての方へ：実力診断（任意・12問）で初期の習熟度を設定</Link>}
     </section>
+
+    <LectureCard />
 
     <section className="card">
       <div className="section-head"><h3>6課目の習熟度</h3><Link to="/analysis" className="subtle-link">詳しく</Link></div>

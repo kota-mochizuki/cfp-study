@@ -9,6 +9,7 @@ import Analysis from '../ui/screens/Analysis';
 import SettingsScreen from '../ui/screens/Settings';
 import AdminList, { AdminEdit, AdminImport } from '../ui/screens/Admin';
 import Dev from '../ui/screens/Dev';
+import LectureList, { LectureView } from '../ui/screens/Lectures';
 import { Icon } from '../ui/components';
 
 const TABS = [
@@ -49,6 +50,8 @@ export default function App() {
         <Route path="/admin/q/:id" element={<AdminEdit />} />
         <Route path="/admin/import" element={<AdminImport />} />
         <Route path="/dev" element={<Dev />} />
+        <Route path="/lectures" element={<LectureList />} />
+        <Route path="/lecture/:id" element={<LectureView />} />
         <Route path="*" element={<Home />} />
       </Routes>
       <TabBar />

@@ -265,3 +265,43 @@ export interface WeeklyReview {
   unused: string;
   decision: string;
 }
+
+/** 配信講義の一覧（lectures/index.json）の1件 */
+export interface LectureSummary {
+  id: string;
+  /** 配信日 YYYY-MM-DD と 朝(am)/夕(pm) */
+  date: string;
+  slot: 'am' | 'pm';
+  subject: SubjectId;
+  title: string;
+  minutes: number;
+}
+
+/** 配信講義の本文（lectures/L001.json）。章立ては固定、本文は Markdown */
+export interface Lecture extends LectureSummary {
+  /** 対象単元（学習ガイドの大分類・中分類） */
+  large: string;
+  middle: string[];
+  goals: string[];
+  /** 第2章 知識の体系図 */
+  map: string;
+  /** 第3章 詳細な知識解説 */
+  sections: { title: string; body: string }[];
+  /** 第4章 間違えやすい論点 */
+  traps: string;
+  /** 第5・6章 確認問題（インポート形式と同じ行データ。解説つき） */
+  questions: Record<string, unknown>[];
+  /** 第7章 根拠資料 */
+  sources: { name: string; url: string; note?: string }[];
+  lawBaseDate: string;
+  /** 一次資料を確認した日 */
+  verifiedOn: string;
+  unconfirmed: string[];
+}
+
+/** 講義ごとの学習状態（端末内） */
+export interface LectureState {
+  openedAt: number;
+  sessionId?: string;
+  answers: Record<string, ChoiceKey>;
+}
