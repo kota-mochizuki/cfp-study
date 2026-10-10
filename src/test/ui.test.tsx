@@ -131,7 +131,7 @@ describe('講義', () => {
       topic: 'ライフプランと目標リターンの算出', question_text: `確認問題その${n}`, choice_a: `選択肢あ${n}`, choice_b: `選択肢い${n}`, choice_c: `選択肢う${n}`, choice_d: `選択肢え${n}`,
       correct_answer: 'B', verified_answer: 'B', verification_status: 'verified', explanation: '詳しい解説', explanation_short: '一言解説です',
       explanation_a: '× 誤り。正しくは い である。', explanation_b: '○ 正しい記述である。', explanation_c: '× 誤り。正しくは い である。', explanation_d: '× 誤り。正しくは い である。',
-      key_point: 'ポイント', law_reference_date: '2027-01-01', law_revision_flag: 'verified', source_type: 'original', tags: '講義;L001',
+      key_point: 'ポイント', law_reference_date: '2027-01-01', law_revision_flag: 'verified', source_type: 'original', tags: '講義;L001', related_sections: [1],
     });
     const lecture = {
       id: 'L001', date: '2026-10-11', slot: 'am', subject: 'finance', title: '目標リターンの算出', minutes: 35, large: 'ライフプランと金融資産運用設計',
@@ -146,7 +146,9 @@ describe('講義', () => {
       window.location.hash = '#/lecture/L001';
       render(<App />);
       expect(await screen.findByText('目標リターンの算出', {}, { timeout: 5000 })).toBeTruthy();
-      expect(screen.getByText('終価係数').tagName).toBe('H4');
+      // 本文は既定で閉じている（見出しだけ見える）
+      expect(screen.getByRole('button', { name: /3-1　6つの係数/ }).getAttribute('aria-expanded')).toBe('false');
+      expect(screen.queryByText('終価係数')).toBeNull();
       expect(screen.getByText('つまりどういうこと？')).toBeTruthy();
       expect(screen.getByText(/貯金が1年で何%/)).toBeTruthy();
       expect(screen.queryByText('一言解説です')).toBeNull();
@@ -156,6 +158,11 @@ describe('講義', () => {
       expect((await screen.findByRole('status', {}, { timeout: 5000 })).textContent).toContain('× 不正解（正解：2）');
       expect(screen.getByText('一言解説です')).toBeTruthy();
       expect(screen.getAllByRole('button', { name: '回答する' })).toHaveLength(4);
+      // 間違えた問題から、関係する本文の節を開ける
+      expect(screen.getByText('間違えた所は、本文のここを読むと分かります')).toBeTruthy();
+      fireEvent.click(screen.getByRole('button', { name: '3-1　6つの係数 を読む' }));
+      expect(screen.getByText('終価係数').tagName).toBe('H4');
+      await waitFor(async () => expect(((await db.kv.get('lectureStates'))!.value as Record<string, { open?: number[] }>).L001.open).toEqual([1]));
       await waitFor(async () => expect((await db.attempts.toArray()).map((a) => [a.questionId, a.selected, a.correct])).toEqual([['LEC-L001-Q1', 'C', false]]));
       const { buildLectureReport } = await import('../data/lectures');
       const report = await buildLectureReport(await db.attempts.toArray());

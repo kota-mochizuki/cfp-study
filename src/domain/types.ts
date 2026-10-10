@@ -309,5 +309,7 @@ export interface LectureState {
   sessionId?: string;
   /** 読んでいた位置（ページ上端からのpx）。次に開いたとき続きから読む */
   scrollY?: number;
+  /** 開いている本文の節（0=体系図、1〜=第3章の節番号）。既定はすべて閉じて、必要な所だけ読む */
+  open?: number[];
   answers: Record<string, ChoiceKey>;
 }

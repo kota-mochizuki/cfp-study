@@ -56,10 +56,20 @@ export async function saveLectureState(id: string, state: LectureState) {
   await db.kv.put({ key: 'lectureStates', value: { ...(await lectureStates()), [id]: state } });
 }
 
-/** 読んでいる位置だけを更新する（回答の記録は書き換えない） */
-export async function saveLectureScroll(id: string, y: number) {
+/** 学習状態の一部だけを更新する（ほかの項目は保存済みの値を残す） */
+export async function patchLectureState(id: string, patch: Partial<LectureState>) {
   const all = await lectureStates();
-  if (all[id]) await db.kv.put({ key: 'lectureStates', value: { ...all, [id]: { ...all[id], scrollY: Math.round(y) } } });
+  if (all[id]) await db.kv.put({ key: 'lectureStates', value: { ...all, [id]: { ...all[id], ...patch } } });
+}
+
+/** 読んでいる位置だけを更新する（回答の記録は書き換えない） */
+export const saveLectureScroll = (id: string, y: number) => patchLectureState(id, { scrollY: Math.round(y) });
+
+/** 確認問題に関係する第3章の節番号（1始まり）。講義データの related_sections から、実在する節だけを返す */
+export function relatedSections(lecture: Lecture, questionId: string): number[] {
+  const row = lecture.questions.find((r) => r.question_id === questionId);
+  const xs = Array.isArray(row?.related_sections) ? row.related_sections : [];
+  return xs.filter((n): n is number => Number.isInteger(n) && n >= 1 && n <= lecture.sections.length);
 }
 
 /**

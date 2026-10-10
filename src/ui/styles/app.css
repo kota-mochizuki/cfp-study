@@ -476,3 +476,10 @@ details summary { cursor: pointer; font-size: 14px; padding: 8px 0; }
 .lec-plain .md { font-size: 16px; }
 .lec-next { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; margin: 10px 0 4px; text-align: left; text-decoration: none; }
 .lec-next small { font-size: 12px; font-weight: 500; opacity: .85; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.lec-fold { scroll-margin-top: 8px; }
+.lec-fold:first-of-type { border-top: 0; }
+.lec-fold > .collapse-head { color: var(--primary); }
+.lec-related { margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); display: grid; gap: 8px; }
+.lec-related.wrong { background: var(--warn-bg); }
+.lec-related p { margin: 0; font-size: 13px; font-weight: 650; color: var(--text-2); }
+.lec-related .btn-secondary { text-align: left; white-space: normal; }

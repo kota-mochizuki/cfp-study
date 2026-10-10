@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useApp } from '../../app/store';
 import { SUBJECTS, SUBJECT_MAP } from '../../domain/subjects';
 import type { ChoiceKey, Lecture, LectureState, LectureSummary, Question, Session, SubjectId } from '../../domain/types';
-import { buildLectureReport, lectureStates, loadLecture, loadLectureIndex, saveLectureScroll, saveLectureState } from '../../data/lectures';
+import { buildLectureReport, lectureStates, loadLecture, loadLectureIndex, patchLectureState, relatedSections, saveLectureScroll, saveLectureState } from '../../data/lectures';
 import { getSession, recordAnswer, saveSession } from '../../data/repo';
 import { uid } from '../../lib/random';
 import { Choices, Explanation } from '../QuestionParts';
@@ -119,6 +119,23 @@ export function LectureView() {
   if (!lecture || !state) return <main className="page"><PageHeader title="講義" back="/lectures" /><Empty>読み込み中…</Empty></main>;
 
   const subject = SUBJECT_MAP[lecture.subject];
+  // 本文（体系図と第3章の各節）は既定で閉じておき、読みたい所・間違えた所だけ開く
+  const open = new Set(state.open ?? []);
+  const allOpen = lecture.sections.every((_, i) => open.has(i + 1));
+  function setOpen(next: Set<number>) {
+    const arr = [...next].sort((a, b) => a - b);
+    setState({ ...state!, open: arr });
+    patchLectureState(id, { open: arr });
+  }
+  function toggle(i: number) {
+    const next = new Set(open);
+    if (next.has(i)) next.delete(i); else next.add(i);
+    setOpen(next);
+  }
+  function openSection(i: number) {
+    setOpen(new Set(open).add(i));
+    setTimeout(() => document.getElementById(`sec-${i}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+  }
   return <main className="page lecture">
     <PageHeader title={`講義 ${lecture.id}`} back="/lectures" />
 
@@ -139,13 +156,16 @@ export function LectureView() {
       <Markdown text={lecture.plain} />
     </section>}
 
-    <Chapter no={2} title="知識の体系図"><Markdown text={lecture.map} /></Chapter>
+    <Chapter no={2} title="知識の体系図">
+      <Fold id="sec-0" title="体系図を見る" open={open.has(0)} onToggle={() => toggle(0)}><Markdown text={lecture.map} /></Fold>
+    </Chapter>
 
     <Chapter no={3} title="詳細な知識解説">
-      {lecture.sections.map((s, i) => <div key={s.title} className="lec-section">
-        <h4>3-{i + 1}　{s.title}</h4>
+      <p className="footnote">見出しをタップすると開きます。全部読まなくて大丈夫です。先に下の確認問題を解いて、間違えた所から読むのがおすすめです。</p>
+      {lecture.sections.map((s, i) => <Fold key={s.title} id={`sec-${i + 1}`} title={`3-${i + 1}　${s.title}`} open={open.has(i + 1)} onToggle={() => toggle(i + 1)}>
         <Markdown text={s.body} />
-      </div>)}
+      </Fold>)}
+      <button className="subtle-btn" onClick={() => setOpen(allOpen ? new Set(open.has(0) ? [0] : []) : new Set([...open, ...lecture.sections.map((_, i) => i + 1)]))}>{allOpen ? 'すべて閉じる' : 'すべて開く'}</button>
     </Chapter>
 
     <Chapter no={4} title="CFP試験で間違えやすい論点"><Markdown text={lecture.traps} /></Chapter>
@@ -154,7 +174,7 @@ export function LectureView() {
       <h3 className="lec-chapter"><span>第5・6章</span>確認問題と解説</h3>
       <p className="footnote">オリジナル問題（公式過去問ではありません）。回答すると正答と全選択肢の解説が開き、結果は復習スケジュールに入ります。</p>
       {questions.map((q, i) => <LectureQuestion key={q.question_id} q={q} no={i + 1} lecture={lecture} total={questions.length}
-        state={state} onState={setState} />)}
+        state={state} onState={setState} onOpenSection={openSection} />)}
     </section>
 
     <Chapter no={7} title="根拠資料">
@@ -176,13 +196,22 @@ function Chapter({ no, title, children }: { no: number; title: string; children:
   </section>;
 }
 
-function LectureQuestion({ q, no, total, lecture, state, onState }: { q: Question; no: number; total: number; lecture: Lecture; state: LectureState; onState: (s: LectureState) => void }) {
+/** 開閉できる本文の1区画。見出しの一覧が目次の役目をする */
+function Fold({ id, title, open, onToggle, children }: { id: string; title: string; open: boolean; onToggle: () => void; children: React.ReactNode }) {
+  return <section id={id} className={`collapse lec-fold ${open ? 'open' : ''}`}>
+    <button type="button" className="collapse-head" aria-expanded={open} onClick={onToggle}><span>{title}</span><Icon name="chevron" size={18} /></button>
+    {open && <div className="collapse-body">{children}</div>}
+  </section>;
+}
+
+function LectureQuestion({ q, no, total, lecture, state, onState, onOpenSection }: { q: Question; no: number; total: number; lecture: Lecture; state: LectureState; onState: (s: LectureState) => void; onOpenSection: (i: number) => void }) {
   const app = useApp();
   const answered = state.answers[q.question_id];
   const [selected, setSelected] = useState<ChoiceKey | null>(answered ?? null);
   const [busy, setBusy] = useState(false);
   const shownAt = useRef(Date.now());
   const order: ChoiceKey[] = ['A', 'B', 'C', 'D'];
+  const related = relatedSections(lecture, q.question_id);
 
   async function submit() {
     const meta = app.metaMap.get(q.question_id);
@@ -205,7 +234,7 @@ function LectureQuestion({ q, no, total, lecture, state, onState }: { q: Questio
     const done = Object.keys(answers).length >= total;
     await saveSession({ ...session, answers, cursor: Object.keys(answers).length, endedAt: done ? Date.now() : undefined });
     const next = { ...state, sessionId: session.id, answers: { ...state.answers, [q.question_id]: selected } };
-    await saveLectureState(lecture.id, next);
+    await patchLectureState(lecture.id, { sessionId: next.sessionId, answers: next.answers });
     onState(next);
     setBusy(false);
   }
@@ -220,6 +249,10 @@ function LectureQuestion({ q, no, total, lecture, state, onState }: { q: Questio
         {answered === q.correct_answer ? '✓ 正解' : '× 不正解'}（正解：{order.indexOf(q.correct_answer) + 1}）
       </p>
       <Explanation q={q} order={order} selected={answered} openDetail />
+      {related.length > 0 && <div className={`lec-related ${answered === q.correct_answer ? '' : 'wrong'}`}>
+        <p>{answered === q.correct_answer ? '関連する本文' : '間違えた所は、本文のここを読むと分かります'}</p>
+        {related.map((i) => <button key={i} type="button" className="btn-secondary sm" onClick={() => onOpenSection(i)}>3-{i}　{lecture.sections[i - 1].title} を読む</button>)}
+      </div>}
     </>}
   </div>;
 }
