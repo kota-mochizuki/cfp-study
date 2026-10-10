@@ -41,6 +41,14 @@ def load(folder: str):
     return list(rows.values())
 
 
+def field_name(q):
+    """出題分野名。事例文の冒頭や設問番号が入っているものは、本文の断片を載せないよう「事例問題（分野名なし）」にまとめる"""
+    v = (q.get('category_large') or q.get('topic') or '').strip()
+    if not v or re.match(r'^問\d+', v) or 'さん' in v or '夫婦' in v or len(v) > 28:
+        return '事例問題（分野名なし）'
+    return v
+
+
 def text_of(q):
     return ' '.join(str(q.get(k, '')) for k in ('question_text', 'choice_a', 'choice_b', 'choice_c', 'choice_d', 'case_text'))
 
@@ -58,7 +66,12 @@ def main(folder: str):
         '## 1. 出題分野別の問題数（試験の出題分野名による）', '',
     ]
     for sid, name in SUBJECTS:
-        c = collections.Counter((q.get('category_large') or q.get('topic') or '（不明）') for q in qs if q['subject'] == sid)
+        sub = [q for q in qs if q['subject'] == sid]
+        # 分野名は回をまたいで共通。1回にしか現れない見出しは事例ごとの題名なので、本文の断片を載せないよう「その他」にまとめる
+        exams_of = collections.defaultdict(set)
+        for q in sub:
+            exams_of[field_name(q)].add(q['question_id'][:11])
+        c = collections.Counter(field_name(q) if len(exams_of[field_name(q)]) >= 2 else '事例問題・その他（回ごとに異なる見出し）' for q in sub)
         out += [f'### {name}（{per[sid]}問）', '', '| 出題分野 | 問題数 |', '|---|---|']
         out += [f'| {k} | {v} |' for k, v in c.most_common()]
         out.append('')
