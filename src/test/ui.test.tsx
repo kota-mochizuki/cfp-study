@@ -9,6 +9,8 @@ beforeEach(async () => {
   await db.open();
   window.location.hash = '#/';
   window.scrollTo = () => {};
+  // テストは本物のネットワークに接続しない（講義の取得は個別のテストで差し替える）
+  globalThis.fetch = (async () => { throw new Error('offline'); }) as typeof fetch;
   Element.prototype.scrollIntoView = () => {};
 });
 afterEach(cleanup);
@@ -81,7 +83,8 @@ describe('UI スモーク', () => {
       expect(choices.length).toBe(4);
       fireEvent.click(choices[0]);
       fireEvent.click(answer);
-      await screen.findByRole('status', {}, { timeout: 5000 });
+      // 連続正解の表示が加わると status が2つになるため、複数形で待つ
+      await screen.findAllByRole('status', {}, { timeout: 5000 });
       expect(screen.getByText('POINT')).toBeTruthy();
       const done = screen.queryByRole('button', { name: '結果を見る' });
       fireEvent.click(done ?? screen.getByRole('button', { name: '次へ' }));
