@@ -23,6 +23,8 @@ need(Number.isInteger(lec.minutes) && lec.minutes >= 20 && lec.minutes <= 90, 'm
 need(text(lec.large), 'large（大分類）が必要です');
 need(Array.isArray(lec.middle) && lec.middle.length > 0 && lec.middle.every(text), 'middle（中分類の配列）が必要です');
 need(Array.isArray(lec.goals) && lec.goals.length >= 3, 'goals（到達目標）は3つ以上');
+need(text(lec.plain) && lec.plain.length >= 300 && lec.plain.length <= 900, `plain（1分でわかる：つまりどういうこと？）は300〜900字で必須です（現在 ${String(lec.plain ?? '').length} 字）`);
+need(!/^#{1,4}\s/m.test(lec.plain ?? ''), 'plain に見出しは使えません（太字と表で構成してください）');
 need(text(lec.map) && lec.map.includes('```'), 'map（体系図）は ``` で囲んだ階層図を含めてください');
 need(Array.isArray(lec.sections) && lec.sections.length >= 4 && lec.sections.every((s) => text(s.title) && text(s.body)), 'sections は4節以上、各節に title と body');
 need(text(lec.traps), 'traps（間違えやすい論点）が必要です');
