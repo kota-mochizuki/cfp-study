@@ -438,8 +438,9 @@ base = dict(subject='finance', category_large='ライフプランと金融資産
             topic='ライフプランと目標リターンの算出', source_type='original', law_reference_date='2027-01-01',
             law_revision_flag='verified', verification_status='verified', status='active', tags='講義;L001', importance=3, frequency=2)
 
+LIFE = {"subject": "life", "category_large": "パーソナルファイナンスの基礎知識", "category_middle": "時間価値の考え方", "topic": "時間価値の考え方"}
 Q = [
- dict(question_id='LEC-L001-Q1', question_type='calculation', difficulty=3,
+ dict(question_id='LEC-L001-Q1', **LIFE, question_type='calculation', difficulty=3,
   question_text="""Aさんは、20年後に2,000万円を準備するため、**毎年初**に一定額を年1回積み立て、年利3%（1年複利）で運用する予定である。下記の係数を用いた場合、毎年の積立額として最も適切なものはどれか。なお、税金・手数料は考慮せず、積立は20回行うものとする。
 
 | 年利3% | 20年 | 21年 |
@@ -458,7 +459,7 @@ Q = [
   explanation='毎年の積立額を将来の目標額から求めるので、年金終価係数の逆数（減債基金係数）を使う。期首払いでは、期末払いに比べて全回が1年長く運用されるため、将来額は（1＋r）倍になる。同じ目標額に対する積立額は逆に（1＋r）で割った額になる。',
   calc_method='目標額 ÷（期末払い年金終価係数 ×（1＋r））', related_topics='6つの係数;期首払いと期末払い'),
 
- dict(question_id='LEC-L001-Q2', question_type='calculation', difficulty=4,
+ dict(question_id='LEC-L001-Q2', **LIFE, question_type='calculation', difficulty=4,
   question_text="""45歳のBさんは、65歳時点で、**現在の物価水準で3,000万円に相当する**老後資金を準備したいと考えている。Bさんは現在800万円の金融資産を保有しており、これを含めて今後20年間、年利4%（1年複利）で運用できるものとする。物価上昇率を年1.5%と見込む場合、65歳時点で目標額に到達するために必要な毎年末の積立額として最も適切なものはどれか。なお、税金・手数料は考慮しない。
 
 | 期間20年 | 年1.5% | 年4% |
@@ -571,5 +572,6 @@ lec = dict(
     '係数は小数点以下第4位までに四捨五入した値。本試験で配布される係数表の桁数・利率の刻みは年度により異なる可能性がある。',
   ],
 )
+lec['classification'] = [{"question_id": "LEC-L001-Q1", "first": {"subject": "finance", "middle": "ライフプランと目標リターンの算出"}, "second": {"subject": "life", "middle": "時間価値の考え方"}, "final": {"subject": "life", "large": "パーソナルファイナンスの基礎知識", "middle": "時間価値の考え方"}, "reason": "1回目は講義の単元名で金融と判定した。2回目に問題文だけを見て判定し直すと、求めるのは利回りではなく「期首払いの毎年の積立額」で、係数（年金終価係数・減債基金係数）の機械的な運用が問われている。これはガイド上ライフ課目の「時間価値の考え方」の知識で解ける。目標リターンの算出（金融）は利回りの逆算を指すため、本問は含まれない。"}, {"question_id": "LEC-L001-Q2", "first": {"subject": "finance", "middle": "ライフプランと目標リターンの算出"}, "second": {"subject": "life", "middle": "時間価値の考え方"}, "final": {"subject": "life", "large": "パーソナルファイナンスの基礎知識", "middle": "時間価値の考え方"}, "reason": "1回目は講義の単元名で金融と判定した。2回目に問題文だけで判定し直すと、物価上昇率による目標額の将来価値化と、現有資産の運用後の額を差し引いた積立額（減債基金係数）を求める問題で、利回りは与えられている。時間価値の係数計算にあたり、ガイド上はライフ課目の「時間価値の考え方」。ただしライフプランとインフレの考慮は金融L01にも関係するため、境界上の問題である。"}, {"question_id": "LEC-L001-Q3", "first": {"subject": "finance", "middle": "ライフプランと目標リターンの算出"}, "second": {"subject": "finance", "middle": "ライフプランと目標リターンの算出"}, "final": {"subject": "finance", "large": "ライフプランと金融資産運用設計", "middle": "ライフプランと目標リターンの算出"}, "reason": "問われているのは、金融商品（債券の利子）の税引後の実質利回りで、目標リターンを税引前・名目に換算する際に必要な調整の知識。利回り（リターン）を扱うので金融。税率の内訳はタックスにも関係するが、問題の主題は利回りの換算である。"}, {"question_id": "LEC-L001-Q4", "first": {"subject": "finance", "middle": "ライフプランと目標リターンの算出"}, "second": {"subject": "finance", "middle": "ライフプランと目標リターンの算出"}, "final": {"subject": "finance", "large": "ライフプランと金融資産運用設計", "middle": "ライフプランと目標リターンの算出"}, "reason": "必要収益率の算出と、リスク許容度との照合（算術平均・幾何平均、課税繰延を含む）を問う記述問題。ガイドの「ライフプランと目標リターンの算出」そのものの内容で、金融。"}, {"question_id": "LEC-L001-Q5", "first": {"subject": "finance", "middle": "ライフプランと目標リターンの算出"}, "second": {"subject": "finance", "middle": "ライフプランと目標リターンの算出"}, "final": {"subject": "finance", "large": "ライフプランと金融資産運用設計", "middle": "ライフプランと目標リターンの算出"}, "reason": "取崩し計画から、必要な利回り（税引後→税引前）を逆算する問題。求めるものが利回りなので、目標リターンの算出（金融）にあたる。年金現価係数はライフの時間価値の知識だが、問われているのは利回りの逆算である。"}]
 json.dump(lec, open(out, 'w'), ensure_ascii=False, indent=1)
 print('ok', sum(len(s['body']) for s in lec['sections']) + len(MAP) + len(TRAPS))

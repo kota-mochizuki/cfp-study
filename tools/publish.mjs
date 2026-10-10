@@ -12,6 +12,13 @@ const lec = read(`lectures/${id}.json`);
 const errors = [];
 const need = (ok, msg) => { if (!ok) errors.push(msg); };
 const text = (v) => typeof v === 'string' && v.trim().length > 0;
+const guide = read('tools/guide_taxonomy.json');
+const norm = (v) => String(v ?? '').normalize('NFKC').replace(/\s/g, '');
+const guideChildren = (parent) => guide.filter((n) => n.parentId === parent);
+const findMiddle = (subject, large, middle) => {
+  const L = guideChildren(subject).filter((n) => !large || norm(n.name) === norm(large));
+  return L.flatMap((l) => guideChildren(l.id)).find((m) => norm(m.name) === norm(middle));
+};
 const SUBJECTS = ['finance', 'realestate', 'life', 'risk', 'tax', 'inheritance'];
 
 need(lec.id === id, 'id がファイル名と一致しません');
@@ -66,6 +73,22 @@ qs.forEach((q, i) => {
 });
 need(new Set(answers).size >= 3, '正解番号が偏っています（5問で3種類以上に散らしてください）');
 if (!qs.some((q) => q.question_type === 'calculation')) console.warn('注意: 計算問題がありません（計算要素のない単元であれば問題ありません）');
+
+const cls = lec.classification;
+need(Array.isArray(cls) && cls.length === 5, 'classification（確認問題ごとの課目の確認記録）が5件必要です');
+qs.forEach((q, i) => {
+  const n = `問${i + 1}`;
+  need(!!findMiddle(q.subject, q.category_large, q.category_middle), `${n}: 課目「${q.subject}」の学習ガイドに 大分類「${q.category_large}」／中分類「${q.category_middle}」がありません（tools/guide_taxonomy.json の名称と完全に一致させてください）`);
+  need(norm(q.topic) === norm(q.category_middle), `${n}: topic は中分類名と同じにしてください`);
+  const c = (cls ?? []).find((x) => x.question_id === q.question_id);
+  need(!!c, `${n}: classification に ${q.question_id} がありません`);
+  if (!c) return;
+  for (const k of ['first', 'second']) need(c[k] && SUBJECTS.includes(c[k].subject) && text(c[k].middle) && [...guide].some((g) => g.level === 'middle' && g.id.startsWith(`${c[k].subject}.`) && norm(g.name) === norm(c[k].middle)), `${n}: classification.${k}（subject と guide にある中分類名）が不正です`);
+  need(c.final && c.final.subject === q.subject && norm(c.final.large) === norm(q.category_large) && norm(c.final.middle) === norm(q.category_middle), `${n}: classification.final が問題の subject・大分類・中分類と一致しません`);
+  need(text(c.reason) && c.reason.length >= 40, `${n}: classification.reason（判断の根拠。1回目と2回目の判定が食い違ったときは、どう決めたか）が40字以上必要です`);
+  const same = c.first?.subject === c.final?.subject && norm(c.first?.middle) === norm(c.final?.middle) && c.second?.subject === c.final?.subject && norm(c.second?.middle) === norm(c.final?.middle);
+  if (!same) console.warn(`確認: ${n} は1回目・2回目・最終の分類が一致していません。reason に決めた理由が書かれているか確認してください`);
+});
 
 const slotOf = cur.lectures.find((l) => l.id === id);
 if (id.startsWith('L')) {
