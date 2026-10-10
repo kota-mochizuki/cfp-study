@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useApp } from '../../app/store';
-import { SUBJECT_MAP } from '../../domain/subjects';
-import type { ChoiceKey, Lecture, LectureState, LectureSummary, Question, Session } from '../../domain/types';
-import { buildLectureReport, lectureStates, loadLecture, loadLectureIndex, saveLectureState } from '../../data/lectures';
+import { SUBJECTS, SUBJECT_MAP } from '../../domain/subjects';
+import type { ChoiceKey, Lecture, LectureState, LectureSummary, Question, Session, SubjectId } from '../../domain/types';
+import { buildLectureReport, lectureStates, loadLecture, loadLectureIndex, saveLectureScroll, saveLectureState } from '../../data/lectures';
 import { getSession, recordAnswer, saveSession } from '../../data/repo';
 import { uid } from '../../lib/random';
 import { Choices, Explanation } from '../QuestionParts';
 import { Empty, Icon, Markdown, PageHeader } from '../components';
 
 const slotLabel = (l: Pick<LectureSummary, 'date' | 'slot'>) => `${l.date.replace(/^\d+-0?(\d+)-0?(\d+)$/, '$1/$2')} ${l.slot === 'am' ? '朝' : '夕'}`;
+
+const isDone = (st: LectureState | undefined) => Object.keys(st?.answers ?? {}).length >= 5;
 
 /** 講義の進み具合: 未読 / 問題の途中 / 完了 */
 function progress(st: LectureState | undefined): string {
@@ -39,6 +41,9 @@ export default function LectureList() {
   const app = useApp();
   const [report, setReport] = useState('');
   const [copied, setCopied] = useState(false);
+  const [subject, setSubject] = useState<'all' | SubjectId>('all');
+  const [onlyPending, setOnlyPending] = useState(false);
+  const shown = (data?.list ?? []).filter((l) => (subject === 'all' || l.subject === subject) && (!onlyPending || !isDone(data!.states[l.id])));
   // クリップボードが使えない環境でも、表示された文章を手で選んでコピーできるようにする
   async function makeReport() {
     const text = await buildLectureReport(app.attempts ?? []);
@@ -49,9 +54,16 @@ export default function LectureList() {
     <PageHeader title="講義" back="/" />
     {data?.offline && <p className="footnote">通信できないため、前回までに取得した一覧を表示しています。</p>}
     {data && !data.list.length && <Empty>まだ講義が配信されていません。毎日 7:00 と 17:00 に追加されます。</Empty>}
-    {data && data.list.length > 0 && <section className="card lec-list">
-      {data.list.map((l) => <LectureRow key={l.id} l={l} state={data.states[l.id]} />)}
-    </section>}
+    {data && data.list.length > 0 && <>
+      <div className="chips" role="group" aria-label="講義の絞り込み">
+        <button className={`chip sm ${subject === 'all' && !onlyPending ? 'on' : ''}`} aria-pressed={subject === 'all' && !onlyPending} onClick={() => { setSubject('all'); setOnlyPending(false); }}>すべて</button>
+        <button className={`chip sm ${onlyPending ? 'on' : ''}`} aria-pressed={onlyPending} onClick={() => setOnlyPending(!onlyPending)}>未完了</button>
+        {SUBJECTS.map((s) => <button key={s.id} className={`chip sm ${subject === s.id ? 'on' : ''}`} aria-pressed={subject === s.id} onClick={() => setSubject(subject === s.id ? 'all' : s.id)}>{s.short}</button>)}
+      </div>
+      {shown.length ? <section className="card lec-list">
+        {shown.map((l) => <LectureRow key={l.id} l={l} state={data.states[l.id]} />)}
+      </section> : <Empty>該当する講義はありません。</Empty>}
+    </>}
     <section className="card">
       <h3>学習レポート</h3>
       <p className="footnote">確認問題の誤答をまとめます。コピーして Claude に貼ると、以後の講義と復習に反映されます（週1回が目安）。</p>
@@ -71,6 +83,7 @@ export function LectureView() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [state, setState] = useState<LectureState>();
   const [error, setError] = useState('');
+  const resumeY = useRef(0);
 
   useEffect(() => {
     let alive = true;
@@ -81,6 +94,7 @@ export function LectureView() {
         const st = (await lectureStates())[id] ?? { openedAt: Date.now(), answers: {} };
         await saveLectureState(id, st);
         if (!alive) return;
+        resumeY.current = st.scrollY ?? 0;
         setLecture(r.lecture); setQuestions(r.questions); setState(st);
       } catch (e) {
         if (alive) setError((e as Error).message);
@@ -88,6 +102,18 @@ export function LectureView() {
     })();
     return () => { alive = false; };
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 前回読んでいた位置へ戻り、スクロールするたびに（少し待ってから）位置を保存する
+  const loaded = !!lecture && !!state;
+  useEffect(() => {
+    if (!loaded) return;
+    const y = resumeY.current;
+    const restore = y > 0 ? setTimeout(() => window.scrollTo(0, y), 80) : undefined;
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const onScroll = () => { clearTimeout(t); t = setTimeout(() => saveLectureScroll(id, window.scrollY), 500); };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => { clearTimeout(restore); clearTimeout(t); window.removeEventListener('scroll', onScroll); };
+  }, [loaded, id]);
 
   if (error) return <main className="page"><PageHeader title="講義" back="/lectures" /><Empty>{error}</Empty></main>;
   if (!lecture || !state) return <main className="page"><PageHeader title="講義" back="/lectures" /><Empty>読み込み中…</Empty></main>;
@@ -198,15 +224,21 @@ function LectureQuestion({ q, no, total, lecture, state, onState }: { q: Questio
   </div>;
 }
 
-/** ホームに出す「今日の講義」。未完了の新しいものから2件 */
+/** ホームに出す「今日の講義」。未完了のうち最新の回へ1タップで進み、読みかけなら続きから開く */
 export function LectureCard() {
   const data = useLectureIndex();
   if (!data?.list.length) return null;
-  const pending = data.list.filter((l) => Object.keys(data.states[l.id]?.answers ?? {}).length < 5);
-  const show = (pending.length ? pending : data.list).slice(0, 2);
+  const pending = data.list.filter((l) => !isDone(data.states[l.id]));
+  const next = pending[0];
+  const resumed = (data.states[next?.id]?.scrollY ?? 0) > 200;
+  const rows = (next ? pending.slice(1, 3) : data.list.slice(0, 2));
   return <section className="card">
     <div className="section-head"><h3>今日の講義</h3><Link to="/lectures" className="subtle-link">すべて<Icon name="chevron" size={14} /></Link></div>
-    <div className="lec-list">{show.map((l) => <LectureRow key={l.id} l={l} state={data.states[l.id]} />)}</div>
-    {pending.length > 2 && <p className="footnote">未完了の講義があと {pending.length - 2} 回あります。</p>}
+    {next ? <Link to={`/lecture/${next.id}`} className="btn-primary btn-xl lec-next">
+      <span>{resumed ? '続きから読む' : '次の講義を読む'}</span>
+      <small>{slotLabel(next)}　{SUBJECT_MAP[next.subject].short}｜{next.title}</small>
+    </Link> : <p className="footnote">配信済みの講義はすべて完了しています。</p>}
+    {rows.length > 0 && <div className="lec-list">{rows.map((l) => <LectureRow key={l.id} l={l} state={data.states[l.id]} />)}</div>}
+    {pending.length > 3 && <p className="footnote">未完了の講義があと {pending.length - 1} 回あります。遅れても全部は追わなくて大丈夫です。</p>}
   </section>;
 }

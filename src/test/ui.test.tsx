@@ -163,3 +163,55 @@ describe('講義', () => {
     }
   });
 });
+
+describe('講義の取り組みやすさ', () => {
+  const mk = (id: string, subject: string, title: string, slot = 'am') => ({ id, date: '2026-10-1' + id.slice(-1), slot, subject, title, minutes: 35 });
+  const lectures = [mk('L001', 'finance', '金融の講義その1'), mk('L002', 'realestate', '不動産の講義その2', 'pm'), mk('L003', 'life', 'ライフの講義その3')];
+  async function withIndex(fn: () => Promise<void>) {
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async () => new Response(JSON.stringify(lectures))) as typeof fetch;
+    try { await fn(); } finally { globalThis.fetch = realFetch; }
+  }
+
+  it('ホーム: 未完了の最新回へ直行するボタンを出し、読みかけなら「続きから読む」になる', async () => {
+    await withIndex(async () => {
+      const { bootstrap } = await import('../data/bootstrap');
+      await bootstrap();
+      render(<App />);
+      const link = await screen.findByRole('link', { name: /次の講義を読む/ }, { timeout: 5000 });
+      expect(link.getAttribute('href')).toBe('#/lecture/L003');
+      expect(link.textContent).toContain('ライフの講義その3');
+      cleanup();
+      await db.kv.put({ key: 'lectureStates', value: { L003: { openedAt: 1, scrollY: 900, answers: {} } } });
+      render(<App />);
+      expect((await screen.findByRole('link', { name: /続きから読む/ }, { timeout: 5000 })).getAttribute('href')).toBe('#/lecture/L003');
+    });
+  });
+
+  it('講義一覧: 課目で絞り込める。未完了だけにもできる', async () => {
+    await withIndex(async () => {
+      const { bootstrap } = await import('../data/bootstrap');
+      await bootstrap();
+      await db.kv.put({ key: 'lectureStates', value: { L001: { openedAt: 1, answers: { a: 'A', b: 'A', c: 'A', d: 'A', e: 'A' } } } });
+      window.location.hash = '#/lectures';
+      render(<App />);
+      expect(await screen.findByText('金融の講義その1', {}, { timeout: 5000 })).toBeTruthy();
+      fireEvent.click(screen.getByRole('button', { name: 'ライフ' }));
+      expect(screen.queryByText('金融の講義その1')).toBeNull();
+      expect(screen.getByText('ライフの講義その3')).toBeTruthy();
+      fireEvent.click(screen.getByRole('button', { name: 'ライフ' }));
+      fireEvent.click(screen.getByRole('button', { name: '未完了' }));
+      expect(screen.queryByText('金融の講義その1')).toBeNull();
+      expect(screen.getByText('不動産の講義その2')).toBeTruthy();
+    });
+  });
+
+  it('読んでいる位置は、回答の記録を消さずに保存される', async () => {
+    const { saveLectureState, saveLectureScroll, lectureStates } = await import('../data/lectures');
+    await saveLectureState('L001', { openedAt: 1, answers: { 'LEC-L001-Q1': 'B' } });
+    await saveLectureScroll('L001', 1234.6);
+    expect((await lectureStates()).L001).toMatchObject({ scrollY: 1235, answers: { 'LEC-L001-Q1': 'B' } });
+    await saveLectureScroll('L999', 50);
+    expect((await lectureStates()).L999).toBeUndefined();
+  });
+});

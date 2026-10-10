@@ -56,6 +56,12 @@ export async function saveLectureState(id: string, state: LectureState) {
   await db.kv.put({ key: 'lectureStates', value: { ...(await lectureStates()), [id]: state } });
 }
 
+/** 読んでいる位置だけを更新する（回答の記録は書き換えない） */
+export async function saveLectureScroll(id: string, y: number) {
+  const all = await lectureStates();
+  if (all[id]) await db.kv.put({ key: 'lectureStates', value: { ...all, [id]: { ...all[id], scrollY: Math.round(y) } } });
+}
+
 /**
  * 講義の確認問題の結果をまとめた文章。講義を作る側（クラウド）は端末の記録を読めないので、
  * これをコピーして渡してもらい、以後の講義・復習に反映する。

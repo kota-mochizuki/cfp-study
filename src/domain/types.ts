@@ -307,5 +307,7 @@ export interface Lecture extends LectureSummary {
 export interface LectureState {
   openedAt: number;
   sessionId?: string;
+  /** 読んでいた位置（ページ上端からのpx）。次に開いたとき続きから読む */
+  scrollY?: number;
   answers: Record<string, ChoiceKey>;
 }
