@@ -68,6 +68,7 @@ qs.forEach((q, i) => {
   need(['knowledge', 'calculation', 'case', 'reading'].includes(q.question_type), `${n}: question_type が不正です`);
   need(Number.isInteger(q.difficulty) && q.difficulty >= 3 && q.difficulty <= 5, `${n}: difficulty は3〜5（CFPの応用〜難問）`);
   if (q.question_type === 'calculation') need(Array.isArray(q.calculation_steps) && q.calculation_steps.length >= 2, `${n}: 計算問題には calculation_steps（2段階以上）が必要です`);
+  need(Array.isArray(q.related_sections) && q.related_sections.length >= 1 && q.related_sections.length <= 3 && q.related_sections.every((x) => Number.isInteger(x) && x >= 1 && x <= (lec.sections ?? []).length), `${n}: related_sections（この問題を解くのに読むべき第3章の節番号。1始まりで1〜3個、最も関係の深い順）が必要です`);
   need(String(q.tags ?? '').includes(id), `${n}: tags に「講義;${id}」を入れてください`);
   answers.push(q.correct_answer);
 });
