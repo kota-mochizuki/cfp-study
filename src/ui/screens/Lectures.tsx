@@ -108,6 +108,11 @@ export function LectureView() {
       <ul className="lec-goals">{lecture.goals.map((g) => <li key={g}>{g}</li>)}</ul>
     </section>
 
+    {lecture.plain && <section className="card lec-plain">
+      <h3 className="lec-chapter"><span>1分でわかる</span>つまりどういうこと？</h3>
+      <Markdown text={lecture.plain} />
+    </section>}
+
     <Chapter no={2} title="知識の体系図"><Markdown text={lecture.map} /></Chapter>
 
     <Chapter no={3} title="詳細な知識解説">

@@ -132,7 +132,7 @@ describe('講義', () => {
     });
     const lecture = {
       id: 'L001', date: '2026-10-11', slot: 'am', subject: 'finance', title: '目標リターンの算出', minutes: 35, large: 'ライフプランと金融資産運用設計',
-      middle: ['ライフプランと目標リターンの算出'], goals: ['必要な利回りを求められる'], map: '```\n体系図\n```', sections: [{ title: '6つの係数', body: '### 終価係数\n本文です' }],
+      middle: ['ライフプランと目標リターンの算出'], goals: ['必要な利回りを求められる'], plain: '目標のお金に届くには、貯金が1年で何%ふえればいいかの話です。', map: '```\n体系図\n```', sections: [{ title: '6つの係数', body: '### 終価係数\n本文です' }],
       traps: '期首払いに注意', questions: [1, 2, 3, 4, 5].map(q), sources: [{ name: '日本FP協会', url: 'https://www.jafp.or.jp/' }], lawBaseDate: '2027-01-01', verifiedOn: '2026-10-10', unconfirmed: [],
     };
     const realFetch = globalThis.fetch;
@@ -144,6 +144,8 @@ describe('講義', () => {
       render(<App />);
       expect(await screen.findByText('目標リターンの算出', {}, { timeout: 5000 })).toBeTruthy();
       expect(screen.getByText('終価係数').tagName).toBe('H4');
+      expect(screen.getByText('つまりどういうこと？')).toBeTruthy();
+      expect(screen.getByText(/貯金が1年で何%/)).toBeTruthy();
       expect(screen.queryByText('一言解説です')).toBeNull();
       const first = screen.getAllByRole('radiogroup', { name: '選択肢' })[0];
       fireEvent.click(within(first).getAllByRole('radio')[2]);

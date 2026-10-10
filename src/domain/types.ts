@@ -285,6 +285,8 @@ export interface Lecture extends LectureSummary {
   large: string;
   middle: string[];
   goals: string[];
+  /** 冒頭の「1分でわかる：つまりどういうこと？」。小学生・中学生にも分かる言葉とたとえ話（Markdown） */
+  plain?: string;
   /** 第2章 知識の体系図 */
   map: string;
   /** 第3章 詳細な知識解説 */
