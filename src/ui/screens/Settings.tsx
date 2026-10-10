@@ -20,6 +20,7 @@ export default function SettingsScreen() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [msg, setMsg] = useState('');
   const [storage, setStorage] = useState<StorageInfo>();
+  const pastCount = app.metas.filter((m) => m.source === 'official_past_exam').length;
   const sampleCount = app.metas.filter((m) => SAMPLE_IDS.has(m.id)).length;
   useEffect(() => { storageInfo().then(setStorage); }, [app.metas.length]);
 
@@ -51,7 +52,7 @@ export default function SettingsScreen() {
       <label>目標試験日<input type="date" value={s.examDate} onChange={(e) => app.updateSettings({ examDate: e.target.value })} /></label>
       <label>法令基準日
         <input type="date" value={s.lawBaseDate} onChange={(e) => app.updateSettings({ lawBaseDate: e.target.value })} />
-        <small>2027年6月（第1回）は前年10月1日施行法令が基準となるのが通例。試験要項の公表後に確認してください。これより古い「要確認」の問題に警告を出します。</small>
+        <small>2027年度第1回（6/13・6/20）は2027年1月1日です（日本FP協会の試験概要で確認済み）。これより古い「要確認」の問題に警告を出します。</small>
       </label>
       <label>合格目安（模試）
         <select value={s.passLineRatio} onChange={(e) => app.updateSettings({ passLineRatio: Number(e.target.value) })}>
@@ -64,6 +65,7 @@ export default function SettingsScreen() {
       <h3>学習</h3>
       <label className="switch"><span>ホームを簡略表示（内訳を隠す）</span><input type="checkbox" checked={s.simpleHome} onChange={(e) => app.updateSettings({ simpleHome: e.target.checked })} /></label>
       <label className="switch"><span>選択肢の順番をシャッフル（位置の暗記を防ぐ）</span><input type="checkbox" checked={s.shuffleChoices} onChange={(e) => app.updateSettings({ shuffleChoices: e.target.checked })} /></label>
+      <label className="switch"><span>公式過去問を表示・出題しない（解説が揃うまで）</span><input type="checkbox" checked={s.hidePastExams} onChange={(e) => app.updateSettings({ hidePastExams: e.target.checked })} /></label>
       <label className="switch"><span>旧制度の問題も出題する</span><input type="checkbox" checked={s.includeOutdated} onChange={(e) => app.updateSettings({ includeOutdated: e.target.checked })} /></label>
       <label>表示
         <select value={s.theme} onChange={(e) => app.updateSettings({ theme: e.target.value as typeof s.theme })}>
@@ -79,7 +81,8 @@ export default function SettingsScreen() {
         <li><Link to="/admin"><span>問題管理（追加・編集・削除・検索）</span><Icon name="chevron" size={16} /></Link></li>
         <li><Link to="/admin/import"><span>CSV / JSON インポート</span><Icon name="chevron" size={16} /></Link></li>
       </ul>
-      <p className="footnote">登録済み {app.metas.length}問（出題対象 {app.activeMetas.length}問）・論点ノード {app.nodes.length}</p>
+      <p className="footnote">登録済み {app.metas.length}問（出題対象 {app.activeMetas.length}問）・論点ノード {app.nodes.length}
+        {s.hidePastExams && pastCount > 0 && <>　過去問 {pastCount}問は非表示中（データは残っています。上の「学習」の設定でいつでも戻せます）</>}</p>
       {sampleCount > 0 && <button className="btn-secondary sm" onClick={removeSamples}>サンプル問題を削除（{sampleCount}問）</button>}
     </section>
 

@@ -17,6 +17,7 @@ export const DEFAULT_SETTINGS: Settings = {
   simpleHome: false,
   shuffleChoices: false,
   includeOutdated: false,
+  hidePastExams: true,
   theme: 'auto',
   defaultMinutes: 10,
   secPerQuestion: 60,
@@ -174,12 +175,12 @@ export async function logEvent(type: UxEvent['type'], payload: Record<string, un
 export const allEvents = () => db.uxEvents.toArray();
 
 /** 問題・論点・キーワード検索（全文を走査。1万問でも数百ms） */
-export async function searchQuestions(query: string, nodes: Map<string, TaxNode>, limit = 100): Promise<Question[]> {
+export async function searchQuestions(query: string, nodes: Map<string, TaxNode>, limit = 100, hidePastExams = false): Promise<Question[]> {
   const terms = query.normalize('NFKC').toLowerCase().split(/\s+/).filter(Boolean);
   if (!terms.length) return [];
   const out: Question[] = [];
   await db.questions.each((q) => {
-    if (out.length >= limit) return;
+    if (out.length >= limit || (hidePastExams && q.source_type === 'official_past_exam')) return;
     const hay = [
       q.question_text, q.topic, q.category_large, q.category_middle, q.category_small, q.key_point, q.explanation,
       q.choice_a, q.choice_b, q.choice_c, q.choice_d, q.tags.join(' '), q.related_topics.join(' '), nodes.get(q.topic_id)?.name,

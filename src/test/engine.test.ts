@@ -274,3 +274,15 @@ describe('BOSS', () => {
     expect(bossItems({ ...base, metas, stats, cards }, 3).map((i) => i.questionId)).not.toContain(a.id);
   });
 });
+
+describe('過去問の非表示設定', () => {
+  const meta = (source: 'official_past_exam' | 'original') => ({ id: 'x', subject: 'finance', topicId: 't', difficulty: 3, importance: 2, frequency: 2, type: 'knowledge', source, lawFlag: 'verified', lawDate: '2027-01-01', status: 'active' }) as never;
+  it('既定では過去問を出題対象から外し、設定で戻せる。オリジナルは常に対象', async () => {
+    const { isActiveMeta } = await import('../app/store');
+    const { DEFAULT_SETTINGS } = await import('../data/repo');
+    expect(DEFAULT_SETTINGS.hidePastExams).toBe(true);
+    expect(isActiveMeta(meta('official_past_exam'), DEFAULT_SETTINGS)).toBe(false);
+    expect(isActiveMeta(meta('official_past_exam'), { ...DEFAULT_SETTINGS, hidePastExams: false })).toBe(true);
+    expect(isActiveMeta(meta('original'), DEFAULT_SETTINGS)).toBe(true);
+  });
+});

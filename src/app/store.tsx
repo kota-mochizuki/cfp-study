@@ -32,6 +32,14 @@ interface AppState {
   refreshEvents: () => Promise<void>;
 }
 
+/** 出題・分析の対象にする問題か。過去問の非表示は設定で切り替える（データ自体は消さない） */
+export function isActiveMeta(m: QuestionMeta, s: Pick<Settings, 'includeOutdated' | 'hidePastExams'>): boolean {
+  if (m.status !== 'active') return false;
+  if (!s.includeOutdated && m.lawFlag === 'outdated') return false;
+  if (s.hidePastExams && m.source === 'official_past_exam') return false;
+  return true;
+}
+
 const Ctx = createContext<AppState | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
@@ -63,7 +71,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AppState | null>(() => {
     if (!core) return null;
     const { metas, cards, nodes, favorites, settings } = core;
-    const activeMetas = metas.filter((m) => m.status === 'active' && (settings.includeOutdated || m.lawFlag !== 'outdated'));
+    const activeMetas = metas.filter((m) => isActiveMeta(m, settings));
     const stats = computeStats({ nodes, metas: activeMetas, cards, now, priors: settings.priors });
     return {
       ready: true, metas, activeMetas, metaMap: new Map(metas.map((m) => [m.id, m])), cards, nodes,

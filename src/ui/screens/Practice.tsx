@@ -120,7 +120,7 @@ export function Search() {
   const [results, setResults] = useState<Question[] | null>(null);
   useEffect(() => {
     if (!query.trim()) { setResults(null); return; }
-    const t = setTimeout(() => searchQuestions(query, app.nodeMap).then(setResults), 200);
+    const t = setTimeout(() => searchQuestions(query, app.nodeMap, 100, app.settings.hidePastExams).then(setResults), 200);
     return () => clearTimeout(t);
   }, [query, app.nodeMap]);
 

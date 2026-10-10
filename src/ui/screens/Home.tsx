@@ -58,6 +58,8 @@ export default function Home() {
       <span className="muted">{resume.cursor}/{resume.items.length} <Icon name="chevron" size={16} /></span>
     </button>}
 
+    <LectureCard />
+
     <section className="card hero">
       <div className="hero-head">
         <h2>今日の最適学習</h2>
@@ -73,8 +75,6 @@ export default function Home() {
       <button className="btn-primary btn-xl" onClick={start} disabled={!plan.items.length || starting}>学習を始める</button>
       {!settings.diagnosticDone && (app.attempts?.length ?? 0) < 20 && <Link className="subtle-link" to="/practice?diag=1">初めての方へ：実力診断（任意・12問）で初期の習熟度を設定</Link>}
     </section>
-
-    <LectureCard />
 
     <section className="card">
       <div className="section-head"><h3>6課目の習熟度</h3><Link to="/analysis" className="subtle-link">詳しく</Link></div>
