@@ -1,6 +1,29 @@
 {
- "updated": null,
- "note": "学習者がアプリの学習レポートを提出するたびに更新する。まだ提出はない。",
- "subjects": {},
- "missed": []
+ "updated": "2026-10-11",
+ "note": "学習者がアプリの学習レポートを提出するたびに更新する。回答数が少ないうちは傾向の断定をしない。",
+ "totals": { "answered": 8, "firstCorrect": 4 },
+ "subjects": {
+  "finance": { "firstCorrect": 1, "answered": 2 },
+  "realestate": { "firstCorrect": 2, "answered": 3 },
+  "life": { "firstCorrect": 1, "answered": 3 },
+  "risk": { "firstCorrect": 0, "answered": 0 },
+  "tax": { "firstCorrect": 0, "answered": 0 },
+  "inheritance": { "firstCorrect": 0, "answered": 0 }
+ },
+ "missed": [
+  { "question_id": "LEC-L001-Q2", "subject": "life", "middle": "時間価値の考え方", "type": "calculation", "chose": 1, "correct": 2, "point": "目標額が現在の物価なら先に終価係数で将来額にする／現有資産は運用後の将来額にしてから差し引く／将来の不足額から毎年の積立額は減債基金係数" },
+  { "question_id": "LEC-L001-Q3", "subject": "finance", "middle": "ライフプランと目標リターンの算出", "type": "calculation", "chose": 4, "correct": 1, "point": "税金は名目の利子にかかるので、先に税引後、次に実質（実質＝(1＋名目)÷(1＋インフレ率)−1）" },
+  { "question_id": "LEC-L001-Q5", "subject": "life", "middle": "時間価値の考え方", "type": "calculation", "chose": 2, "correct": 4, "point": "元手÷毎年の取崩額＝必要な年金現価係数→係数表で挟んで補間／年金現価係数は利率が高いほど小さい／税引後→税引前は÷(1−税率)" },
+  { "question_id": "LEC-L002-Q2", "subject": "realestate", "middle": "不動産の権利と種類", "type": "case", "chose": 1, "correct": 2, "point": "土地の抵当権は地上の建物に及ばない（民法370条本文）／建物は土地と別個の不動産で、別々に登記・処分できる" }
+ ],
+ "observations": [
+  "L001は5問中3問を誤答。3問とも複数段階の計算問題（係数の選択・順序、税引後と実質の順序、税引前への戻し）。知識の問題（Q1・Q4）は正解。",
+  "L002（15分・3問）は3問中1問を誤答。条文の例外を問う事例問題（抵当権は土地と建物のどちらに及ぶか）。",
+  "回答数が8問と少ないため、課目ごとの傾向の断定はしない。次の同種の回で再び誤るかを確認する。"
+ ],
+ "guidance": [
+  "計算問題では、解説の計算過程を省かず、「どの係数を、どの順序で使うか」を各段階の理由つきで示す。",
+  "ライフ『時間価値の考え方』の回（L008・L013・L024）では、係数の選び方の判断手順（何を求めるか→現在か将来か→一時金か毎年か）を表にして、L001で誤った3種類の型（現在の物価からの終価、現有資産の運用後差引、年金現価の補間）を別の数字で1問ずつ入れる。",
+  "不動産の権利の回では、抵当権が土地と建物に及ぶ範囲（370条本文と例外）を、土地のみ・建物のみ・両方に設定した場合に分けて、例外とともに再度確認する問題を入れる。"
+ ]
 }
