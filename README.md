@@ -22,6 +22,7 @@ CFP Study アプリ（https://kota-mochizuki.github.io/cfp-study/）の「講義
 1. `lectures/curriculum.json` を開き、**今回の担当回**を決める。
    - 日本時間の現在日時を `TZ=Asia/Tokyo date` で確認する。
    - `status` が `planned` で、配信日時（`date` の `am`=7:00 / `noon`=12:00 / `pm`=17:00）が現在以前のもののうち、いちばん古い回が担当回。
+   - **前倒しの依頼**：`lectures/early.json`（回の id の配列。例 `["L002"]`）に id があれば、その回は配信日時より前でも担当回にする（学習者が「新しく配信して」と頼んだときに使う）。`early.json` に複数あれば先頭の1本だけ作る。作成後は `tools/publish.mjs` が `early.json` から外す。前倒しでも、`date` / `slot` / `subject` は curriculum.json の値のままにする（検証と一致させる）。
    - 配信漏れで該当が複数あるときは、古いほうから最大2回まで作る。該当が無ければ何も作らずに終了する。
    - 2027年5月1日以降は「5. 2027年5月以降」に従う。2027年6月20日より後は何も作らない。
 2. 担当回の `slot` / `minutes` / `questions`（この回の長さと確認問題の数）と `subject` / `large` / `middle` / `small` / `also`（一緒に扱う中分類）/ `part`（「2/3」なら3回連続の2回目）/ `note`（前の回が残した申し送り）を確認する。
@@ -208,6 +209,7 @@ CFPは6課目の試験で、アプリの習熟度や学習レポートは各問�
 | パス | 内容 |
 |---|---|
 | `lectures/curriculum.json` | 全605回の割当（朝・昼・夕の枠ごとの `minutes` と `questions` を含む）（課目・大分類・中分類・配信日・配信済みか）。`status`：planned / delivered |
+| `lectures/early.json` | 前倒し配信の依頼（回の id の配列）。空なら `[]`。`tools/publish.mjs` が公開した回を外す |
 | `lectures/index.json` | 配信済み講義の一覧（アプリが読む）。`tools/publish.mjs` が更新する |
 | `lectures/Lxxx.json` | 講義本文 |
 | `tools/past_exam_stats.md` | 直近2回の公式過去問（600問）の出題分野別・用語別の**件数のみ**。分類の確認の参考。本文は含まない。学習者のMacで `scripts/make_past_exam_stats.py` により再生成する（新しい回が増えたとき） |

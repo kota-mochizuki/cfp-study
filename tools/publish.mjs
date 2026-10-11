@@ -108,6 +108,7 @@ const index = read('lectures/index.json').filter((l) => l.id !== id);
 index.push({ id, date: lec.date, slot: lec.slot, subject: lec.subject, title: lec.title, minutes: lec.minutes });
 index.sort((a, b) => a.id.localeCompare(b.id));
 writeFileSync('lectures/index.json', JSON.stringify(index, null, 1) + '\n');
+try { const early = read('lectures/early.json'); writeFileSync('lectures/early.json', JSON.stringify(early.filter((x) => x !== id)) + '\n'); } catch { /* early.json が無ければ何もしない */ }
 if (slotOf) { slotOf.status = 'delivered'; slotOf.title = lec.title; }
 writeFileSync('lectures/curriculum.json', JSON.stringify(cur, null, 1) + '\n');
 console.log(`${id} を公開対象にしました（本文 ${body.length} 字・配信済み ${index.length} 回）`);
