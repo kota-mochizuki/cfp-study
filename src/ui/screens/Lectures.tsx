@@ -11,13 +11,16 @@ import { Empty, Icon, Markdown, PageHeader } from '../components';
 
 const slotLabel = (l: Pick<LectureSummary, 'date' | 'slot'>) => `${l.date.replace(/^\d+-0?(\d+)-0?(\d+)$/, '$1/$2')} ${{ am: '朝', noon: '昼', pm: '夕' }[l.slot] ?? ''}`;
 
-const isDone = (st: LectureState | undefined) => Object.keys(st?.answers ?? {}).length >= 5;
+/** 確認問題の数。朝の回は5問、昼・夕の回は3問 */
+const questionTotal = (l: Pick<LectureSummary, 'slot'>) => (l.slot === 'am' ? 5 : 3);
+const answeredCount = (st: LectureState | undefined) => Object.keys(st?.answers ?? {}).length;
+const isDone = (st: LectureState | undefined, l: Pick<LectureSummary, 'slot'>) => answeredCount(st) >= questionTotal(l);
 
 /** 講義の進み具合: 未読 / 問題の途中 / 完了 */
-function progress(st: LectureState | undefined): string {
+function progress(st: LectureState | undefined, l: Pick<LectureSummary, 'slot'>): string {
   if (!st) return '未読';
-  const n = Object.keys(st.answers).length;
-  return n >= 5 ? '完了' : n ? `問題 ${n}/5` : '読みかけ';
+  const n = answeredCount(st);
+  return n >= questionTotal(l) ? '完了' : n ? `問題 ${n}/${questionTotal(l)}` : '読みかけ';
 }
 
 export function useLectureIndex() {
@@ -32,7 +35,7 @@ export function LectureRow({ l, state }: { l: LectureSummary; state?: LectureSta
   return <Link to={`/lecture/${l.id}`} className="lec-row">
     <span className="lec-when">{slotLabel(l)}<b>{SUBJECT_MAP[l.subject].short}</b></span>
     <span className="lec-title">{l.title}</span>
-    <span className={`lec-state ${state && Object.keys(state.answers).length >= 5 ? 'done' : ''}`}>{progress(state)}</span>
+    <span className={`lec-state ${isDone(state, l) ? 'done' : ''}`}>{progress(state, l)}</span>
   </Link>;
 }
 
@@ -43,7 +46,7 @@ export default function LectureList() {
   const [copied, setCopied] = useState(false);
   const [subject, setSubject] = useState<'all' | SubjectId>('all');
   const [onlyPending, setOnlyPending] = useState(false);
-  const shown = (data?.list ?? []).filter((l) => (subject === 'all' || l.subject === subject) && (!onlyPending || !isDone(data!.states[l.id])));
+  const shown = (data?.list ?? []).filter((l) => (subject === 'all' || l.subject === subject) && (!onlyPending || !isDone(data!.states[l.id], l)));
   // クリップボードが使えない環境でも、表示された文章を手で選んでコピーできるようにする
   async function makeReport() {
     const text = await buildLectureReport(app.attempts ?? []);
@@ -261,7 +264,7 @@ function LectureQuestion({ q, no, total, lecture, state, onState, onOpenSection 
 export function LectureCard() {
   const data = useLectureIndex();
   if (!data?.list.length) return null;
-  const pending = data.list.filter((l) => !isDone(data.states[l.id]));
+  const pending = data.list.filter((l) => !isDone(data.states[l.id], l));
   const next = pending[0];
   const resumed = (data.states[next?.id]?.scrollY ?? 0) > 200;
   const rows = (next ? pending.slice(1, 3) : data.list.slice(0, 2));

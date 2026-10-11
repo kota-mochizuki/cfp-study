@@ -198,6 +198,22 @@ describe('講義の取り組みやすさ', () => {
     });
   });
 
+  it('講義一覧: 昼・夕の回は3問で完了になり、朝の回は3問ではまだ完了にならない', async () => {
+    await withIndex(async () => {
+      const { bootstrap } = await import('../data/bootstrap');
+      await bootstrap();
+      await db.kv.put({ key: 'lectureStates', value: {
+        L001: { openedAt: 1, answers: { a: 'A', b: 'A', c: 'A' } },
+        L002: { openedAt: 1, answers: { a: 'A', b: 'A', c: 'A' } },
+      } });
+      window.location.hash = '#/lectures';
+      render(<App />);
+      await screen.findByText('金融の講義その1', {}, { timeout: 5000 });
+      expect(screen.getByText('問題 3/5')).toBeTruthy();
+      expect(screen.getByText('完了')).toBeTruthy();
+    });
+  });
+
   it('講義一覧: 課目で絞り込める。未完了だけにもできる', async () => {
     await withIndex(async () => {
       const { bootstrap } = await import('../data/bootstrap');
