@@ -220,7 +220,7 @@ export interface Settings {
   includeOutdated: boolean;
   /** 公式過去問を出題・検索・分析から外す（データは端末に残る）。解説が揃うまでの設定 */
   hidePastExams: boolean;
-  /** 出題・分析の対象を、配信講義の確認問題（LEC-）だけにする。過去問・サンプルは端末に残る */
+  /** 出題・分析の対象を、配信講義の確認問題（LEC-）と、自分で取り込んだ問題集の問題（BOOK-）だけにする。過去問・サンプルは端末に残る */
   lectureOnly: boolean;
   theme: 'auto' | 'light' | 'dark';
   defaultMinutes: number;

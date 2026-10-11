@@ -181,7 +181,7 @@ export async function searchQuestions(query: string, nodes: Map<string, TaxNode>
   if (!terms.length) return [];
   const out: Question[] = [];
   await db.questions.each((q) => {
-    if (out.length >= limit || (hidePastExams && q.source_type === 'official_past_exam')) return;
+    if (out.length >= limit || (hidePastExams && q.source_type === 'official_past_exam' && !q.question_id.startsWith('BOOK-'))) return;
     const hay = [
       q.question_text, q.topic, q.category_large, q.category_middle, q.category_small, q.key_point, q.explanation,
       q.choice_a, q.choice_b, q.choice_c, q.choice_d, q.tags.join(' '), q.related_topics.join(' '), nodes.get(q.topic_id)?.name,

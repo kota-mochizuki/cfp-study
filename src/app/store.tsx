@@ -38,6 +38,8 @@ interface AppState {
 export function isActiveMeta(m: QuestionMeta, s: Pick<Settings, 'includeOutdated' | 'hidePastExams'> & { lectureOnly?: boolean }): boolean {
   if (m.status !== 'active') return false;
   if (!s.includeOutdated && m.lawFlag === 'outdated') return false;
+  // 学習者が紙の問題集から自分で取り込んだ問題（BOOK-）は、解説つきで登録するので常に対象にする
+  if (m.id.startsWith('BOOK-')) return true;
   if (s.hidePastExams && m.source === 'official_past_exam') return false;
   if (s.lectureOnly && !m.id.startsWith('LEC-')) return false;
   return true;

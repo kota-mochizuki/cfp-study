@@ -295,4 +295,11 @@ describe('過去問の非表示設定', () => {
     expect(isActiveMeta(meta('original'), DEFAULT_SETTINGS)).toBe(false);
     expect(isActiveMeta(meta('original'), { ...DEFAULT_SETTINGS, lectureOnly: false })).toBe(true);
   });
+  it('自分で取り込んだ問題集の問題（BOOK-）は、過去問由来でも既定で出題・分析の対象になる', async () => {
+    const { isActiveMeta } = await import('../app/store');
+    const { DEFAULT_SETTINGS } = await import('../data/repo');
+    const book = { ...(meta('official_past_exam') as object), id: 'BOOK-RISK-001' } as never;
+    expect(isActiveMeta(book, DEFAULT_SETTINGS)).toBe(true);
+    expect(isActiveMeta({ ...(book as object), status: 'archived' } as never, DEFAULT_SETTINGS)).toBe(false);
+  });
 });

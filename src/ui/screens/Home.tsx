@@ -72,7 +72,7 @@ export default function Home() {
         {TIME_BUDGETS.map((t) => <button key={t.min} role="radio" aria-checked={minutes === t.min} className={`chip ${minutes === t.min ? 'on' : ''}`}
           onClick={() => { setMinutes(t.min); logEvent('time_selected', { min: t.min }); }}>{t.label}</button>)}
       </div>
-      {!plan.items.length && settings.lectureOnly && <p className="footnote">講義の確認問題を解くと、ここに復習と類題の出題が表示されます。まず上の「次の講義を読む」から始めてください。</p>}
+      {!plan.items.length && settings.lectureOnly && <p className="footnote">講義の確認問題を解くと、ここに復習と類題の出題が表示されます（自分で取り込んだ問題集の問題も出ます）。まず上の「次の講義を読む」から始めてください。</p>}
       <button className="btn-primary btn-xl" onClick={start} disabled={!plan.items.length || starting}>学習を始める</button>
       {!settings.lectureOnly && !settings.diagnosticDone && (app.attempts?.length ?? 0) < 20 && <Link className="subtle-link" to="/practice?diag=1">初めての方へ：実力診断（任意・12問）で初期の習熟度を設定</Link>}
     </section>
