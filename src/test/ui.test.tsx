@@ -7,6 +7,8 @@ import { db } from '../data/db';
 beforeEach(async () => {
   await db.delete();
   await db.open();
+  // 画面の基本動作はサンプル問題で確認する（既定の「講義の問題だけ」は個別のテストで確かめる）
+  await db.kv.put({ key: 'settings', value: { lectureOnly: false } });
   window.location.hash = '#/';
   window.scrollTo = () => {};
   // テストは本物のネットワークに接続しない（講義の取得は個別のテストで差し替える）

@@ -15,9 +15,10 @@ export default function Analysis() {
   const [mocks, setMocks] = useState<Session[]>([]);
   useEffect(() => { completedMocks().then(setMocks); }, []);
   const now = Date.now();
-  const attempts = app.attempts ?? [];
+  const attempts = app.activeAttempts ?? [];
 
-  const ready = useMemo(() => SUBJECTS.map((s) => readiness(s.id, app.stats, attempts, app.cards, app.metaMap, mocks, now)), [app.stats, attempts, mocks]); // eslint-disable-line react-hooks/exhaustive-deps
+  const activeMap = useMemo(() => new Map(app.activeMetas.map((m) => [m.id, m])), [app.activeMetas]);
+  const ready = useMemo(() => SUBJECTS.map((s) => readiness(s.id, app.stats, attempts, app.cards, activeMap, mocks, now)), [app.stats, attempts, mocks, activeMap]); // eslint-disable-line react-hooks/exhaustive-deps
   const weak = useMemo(() => weakest(app.stats, app.activeMetas, 5), [app.stats, app.activeMetas]);
   const g = useMemo(() => (attempts.length ? growth({ nodes: app.nodes, metas: app.activeMetas, attempts, cards: app.cards, now, avgTimeMs: app.avgTimeMs, priors: app.settings.priors, intervals: app.settings.intervals }) : null), [attempts]); // eslint-disable-line react-hooks/exhaustive-deps
   const prof = useMemo(() => profile(app.nodes, app.activeMetas, attempts, app.cards, now, app.avgTimeMs, app.settings.priors), [attempts]); // eslint-disable-line react-hooks/exhaustive-deps

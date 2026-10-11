@@ -282,7 +282,17 @@ describe('過去問の非表示設定', () => {
     const { DEFAULT_SETTINGS } = await import('../data/repo');
     expect(DEFAULT_SETTINGS.hidePastExams).toBe(true);
     expect(isActiveMeta(meta('official_past_exam'), DEFAULT_SETTINGS)).toBe(false);
-    expect(isActiveMeta(meta('official_past_exam'), { ...DEFAULT_SETTINGS, hidePastExams: false })).toBe(true);
-    expect(isActiveMeta(meta('original'), DEFAULT_SETTINGS)).toBe(true);
+    const all = { ...DEFAULT_SETTINGS, lectureOnly: false };
+    expect(isActiveMeta(meta('official_past_exam'), { ...all, hidePastExams: false })).toBe(true);
+    expect(isActiveMeta(meta('original'), all)).toBe(true);
+  });
+  it('既定では講義の確認問題（LEC-）だけが出題・分析の対象になり、設定で戻せる', async () => {
+    const { isActiveMeta } = await import('../app/store');
+    const { DEFAULT_SETTINGS } = await import('../data/repo');
+    expect(DEFAULT_SETTINGS.lectureOnly).toBe(true);
+    const lec = { ...(meta('original') as object), id: 'LEC-L002-Q1' } as never;
+    expect(isActiveMeta(lec, DEFAULT_SETTINGS)).toBe(true);
+    expect(isActiveMeta(meta('original'), DEFAULT_SETTINGS)).toBe(false);
+    expect(isActiveMeta(meta('original'), { ...DEFAULT_SETTINGS, lectureOnly: false })).toBe(true);
   });
 });

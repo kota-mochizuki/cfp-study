@@ -18,6 +18,7 @@ export const DEFAULT_SETTINGS: Settings = {
   shuffleChoices: false,
   includeOutdated: false,
   hidePastExams: true,
+  lectureOnly: true,
   theme: 'auto',
   defaultMinutes: 10,
   secPerQuestion: 60,

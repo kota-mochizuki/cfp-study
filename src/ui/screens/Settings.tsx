@@ -65,6 +65,7 @@ export default function SettingsScreen() {
       <h3>学習</h3>
       <label className="switch"><span>ホームを簡略表示（内訳を隠す）</span><input type="checkbox" checked={s.simpleHome} onChange={(e) => app.updateSettings({ simpleHome: e.target.checked })} /></label>
       <label className="switch"><span>選択肢の順番をシャッフル（位置の暗記を防ぐ）</span><input type="checkbox" checked={s.shuffleChoices} onChange={(e) => app.updateSettings({ shuffleChoices: e.target.checked })} /></label>
+      <label className="switch"><span>講義の確認問題だけを出題・分析する（過去問・サンプルは使わない）</span><input type="checkbox" checked={s.lectureOnly} onChange={(e) => app.updateSettings({ lectureOnly: e.target.checked })} /></label>
       <label className="switch"><span>公式過去問を表示・出題しない（解説が揃うまで）</span><input type="checkbox" checked={s.hidePastExams} onChange={(e) => app.updateSettings({ hidePastExams: e.target.checked })} /></label>
       <label className="switch"><span>旧制度の問題も出題する</span><input type="checkbox" checked={s.includeOutdated} onChange={(e) => app.updateSettings({ includeOutdated: e.target.checked })} /></label>
       <label>表示

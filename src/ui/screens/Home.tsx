@@ -27,10 +27,10 @@ export default function Home() {
   const plan = useMemo(() => buildSession(buildContext(app), { mode: 'daily', count }), [app.cards, app.activeMetas, count]); // eslint-disable-line react-hooks/exhaustive-deps
   const estMin = Math.max(1, Math.round((plan.items.length * settings.secPerQuestion) / 60));
   const daysLeft = settings.examDate ? daysBetween(Date.now(), parseYmd(settings.examDate)) : null;
-  const act = app.attempts ? activity(app.attempts, Date.now()) : null;
-  const weekly = useMemo(() => (app.attempts && app.attempts.length >= 5
-    ? growth({ nodes: app.nodes, metas: app.activeMetas, attempts: app.attempts, cards: app.cards, now: Date.now(), avgTimeMs: app.avgTimeMs, priors: settings.priors, intervals: settings.intervals })
-    : null), [app.attempts]); // eslint-disable-line react-hooks/exhaustive-deps
+  const act = app.activeAttempts ? activity(app.activeAttempts, Date.now()) : null;
+  const weekly = useMemo(() => (app.activeAttempts && app.activeAttempts.length >= 5
+    ? growth({ nodes: app.nodes, metas: app.activeMetas, attempts: app.activeAttempts, cards: app.cards, now: Date.now(), avgTimeMs: app.avgTimeMs, priors: settings.priors, intervals: settings.intervals })
+    : null), [app.activeAttempts]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function start() {
     if (starting) return;
@@ -72,8 +72,9 @@ export default function Home() {
         {TIME_BUDGETS.map((t) => <button key={t.min} role="radio" aria-checked={minutes === t.min} className={`chip ${minutes === t.min ? 'on' : ''}`}
           onClick={() => { setMinutes(t.min); logEvent('time_selected', { min: t.min }); }}>{t.label}</button>)}
       </div>
+      {!plan.items.length && settings.lectureOnly && <p className="footnote">講義の確認問題を解くと、ここに復習と類題の出題が表示されます。まず上の「次の講義を読む」から始めてください。</p>}
       <button className="btn-primary btn-xl" onClick={start} disabled={!plan.items.length || starting}>学習を始める</button>
-      {!settings.diagnosticDone && (app.attempts?.length ?? 0) < 20 && <Link className="subtle-link" to="/practice?diag=1">初めての方へ：実力診断（任意・12問）で初期の習熟度を設定</Link>}
+      {!settings.lectureOnly && !settings.diagnosticDone && (app.attempts?.length ?? 0) < 20 && <Link className="subtle-link" to="/practice?diag=1">初めての方へ：実力診断（任意・12問）で初期の習熟度を設定</Link>}
     </section>
 
     <section className="card">

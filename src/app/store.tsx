@@ -19,6 +19,8 @@ interface AppState {
   stats: Map<string, NodeStat>;
   /** 回答履歴（起動後に非同期で読み込む。分析・学習状況用） */
   attempts: Attempt[] | null;
+  /** 出題対象の問題の回答履歴だけ。ホーム・分析・習熟度はこちらを使い、過去問などの履歴を混ぜない */
+  activeAttempts: Attempt[] | null;
   events: UxEvent[];
   prefs: UxPrefs;
   /** 本人の回答時間の中央値（遅い正解の判定・SRS用） */
@@ -33,10 +35,11 @@ interface AppState {
 }
 
 /** 出題・分析の対象にする問題か。過去問の非表示は設定で切り替える（データ自体は消さない） */
-export function isActiveMeta(m: QuestionMeta, s: Pick<Settings, 'includeOutdated' | 'hidePastExams'>): boolean {
+export function isActiveMeta(m: QuestionMeta, s: Pick<Settings, 'includeOutdated' | 'hidePastExams'> & { lectureOnly?: boolean }): boolean {
   if (m.status !== 'active') return false;
   if (!s.includeOutdated && m.lawFlag === 'outdated') return false;
   if (s.hidePastExams && m.source === 'official_past_exam') return false;
+  if (s.lectureOnly && !m.id.startsWith('LEC-')) return false;
   return true;
 }
 
@@ -72,11 +75,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!core) return null;
     const { metas, cards, nodes, favorites, settings } = core;
     const activeMetas = metas.filter((m) => isActiveMeta(m, settings));
+    const activeIds = new Set(activeMetas.map((m) => m.id));
+    const activeAttempts = attempts ? attempts.filter((a) => activeIds.has(a.questionId)) : null;
     const stats = computeStats({ nodes, metas: activeMetas, cards, now, priors: settings.priors });
     return {
       ready: true, metas, activeMetas, metaMap: new Map(metas.map((m) => [m.id, m])), cards, nodes,
-      nodeMap: new Map(nodes.map((n) => [n.id, n])), favorites, settings, stats, attempts, events,
-      prefs: uxPrefs((attempts ?? []).slice(-200), events, now),
+      nodeMap: new Map(nodes.map((n) => [n.id, n])), favorites, settings, stats, attempts, activeAttempts, events,
+      prefs: uxPrefs((activeAttempts ?? []).slice(-200), events, now),
       avgTimeMs: medianTime(attempts),
       reload,
       putCard: (c) => setCore((p) => p && { ...p, cards: new Map(p.cards).set(c.questionId, c) }),
