@@ -19,21 +19,25 @@ const findMiddle = (subject, large, middle) => {
   const L = guideChildren(subject).filter((n) => !large || norm(n.name) === norm(large));
   return L.flatMap((l) => guideChildren(l.id)).find((m) => norm(m.name) === norm(middle));
 };
+// 配信枠ごとの基準。朝=30分・確認問題5問、昼・夕=15分・確認問題3問
+const SHORT = { label: '昼・夕', minutes: [12, 20], q: 3, body: [2500, 5500], plain: [200, 700], sections: 3, goals: 2, spread: 2 };
+const SLOT = { am: { label: '朝', minutes: [25, 40], q: 5, body: [5000, 10500], plain: [300, 900], sections: 4, goals: 3, spread: 3 }, noon: SHORT, pm: SHORT };
+const cfg = SLOT[lec.slot] ?? SLOT.am;
 const SUBJECTS = ['finance', 'realestate', 'life', 'risk', 'tax', 'inheritance'];
 
 need(lec.id === id, 'id がファイル名と一致しません');
 need(/^\d{4}-\d{2}-\d{2}$/.test(lec.date ?? ''), 'date は YYYY-MM-DD');
-need(['am', 'pm'].includes(lec.slot), 'slot は am / pm');
+need(!!SLOT[lec.slot], 'slot は am / noon / pm');
 need(SUBJECTS.includes(lec.subject), 'subject が不正です');
 need(text(lec.title) && lec.title.length <= 60, 'title は60字以内で必須');
-need(Number.isInteger(lec.minutes) && lec.minutes >= 20 && lec.minutes <= 90, 'minutes は20〜90の整数');
+need(Number.isInteger(lec.minutes) && lec.minutes >= cfg.minutes[0] && lec.minutes <= cfg.minutes[1], `minutes は${cfg.label}の枠では${cfg.minutes[0]}〜${cfg.minutes[1]}の整数（朝30分・昼夕15分を目安に、確認問題を解く時間を含めた分数）`);
 need(text(lec.large), 'large（大分類）が必要です');
 need(Array.isArray(lec.middle) && lec.middle.length > 0 && lec.middle.every(text), 'middle（中分類の配列）が必要です');
-need(Array.isArray(lec.goals) && lec.goals.length >= 3, 'goals（到達目標）は3つ以上');
-need(text(lec.plain) && lec.plain.length >= 300 && lec.plain.length <= 900, `plain（1分でわかる：つまりどういうこと？）は300〜900字で必須です（現在 ${String(lec.plain ?? '').length} 字）`);
+need(Array.isArray(lec.goals) && lec.goals.length >= cfg.goals, `goals（到達目標）は${cfg.goals}つ以上`);
+need(text(lec.plain) && lec.plain.length >= cfg.plain[0] && lec.plain.length <= cfg.plain[1], `plain（1分でわかる：つまりどういうこと？）は${cfg.plain[0]}〜${cfg.plain[1]}字で必須です（現在 ${String(lec.plain ?? '').length} 字）`);
 need(!/^#{1,4}\s/m.test(lec.plain ?? ''), 'plain に見出しは使えません（太字と表で構成してください）');
 need(text(lec.map) && lec.map.includes('```'), 'map（体系図）は ``` で囲んだ階層図を含めてください');
-need(Array.isArray(lec.sections) && lec.sections.length >= 4 && lec.sections.every((s) => text(s.title) && text(s.body)), 'sections は4節以上、各節に title と body');
+need(Array.isArray(lec.sections) && lec.sections.length >= cfg.sections && lec.sections.every((s) => text(s.title) && text(s.body)), `sections は${cfg.sections}節以上、各節に title と body`);
 need(text(lec.traps), 'traps（間違えやすい論点）が必要です');
 need(lec.lawBaseDate === cur.exam.lawBaseDate, `lawBaseDate は ${cur.exam.lawBaseDate}`);
 need(/^\d{4}-\d{2}-\d{2}$/.test(lec.verifiedOn ?? ''), 'verifiedOn（一次資料の確認日）が必要です');
@@ -41,15 +45,16 @@ need(Array.isArray(lec.unconfirmed), 'unconfirmed（未確認事項の配列。�
 need(Array.isArray(lec.sources) && lec.sources.length >= 2 && lec.sources.every((s) => text(s.name) && /^https:\/\/\S+$/.test(s.url ?? '')), 'sources は2件以上、各件に name と https の url');
 
 const body = [lec.map, lec.traps, ...(lec.sections ?? []).map((s) => s.body)].join('\n');
-need(body.length >= 6000, `本文が短すぎます（${body.length}字。6,000字以上）`);
-need(body.includes('|---'), '本文に表が1つもありません');
+need(body.length >= cfg.body[0], `本文が短すぎます（${body.length}字。${cfg.label}の枠は${cfg.body[0]}字以上）`);
+need(body.length <= cfg.body[1], `本文が長すぎます（${body.length}字。${cfg.label}の枠は${cfg.body[1]}字まで。読む時間が枠を超えます。範囲を絞り、残りは次の回の note に回してください）`);
+need(body.includes('|---') || (cfg !== SLOT.am && body.includes('```')), cfg === SLOT.am ? '本文に表が1つもありません' : '本文に表も数式ブロック（```）もありません');
 // アプリの Markdown が解釈できない記法
 need(!/^#{1,2}\s/m.test(body), '見出しは ### と #### だけが使えます');
 need(!/^\s*\d+\.\s/m.test(body), '番号付きリスト（1. ）は使えません。「- 手順1：」のように書いてください');
 need(!/\$[^$\n]+\$|\\frac|\\times/.test(body), 'LaTeX は使えません。数式は ``` で囲んで書いてください');
 
 const qs = lec.questions ?? [];
-need(Array.isArray(qs) && qs.length === 5, '確認問題は5問');
+need(Array.isArray(qs) && qs.length === cfg.q, `確認問題は${cfg.label}の枠では${cfg.q}問`);
 const answers = [];
 qs.forEach((q, i) => {
   const n = `問${i + 1}`;
@@ -72,11 +77,11 @@ qs.forEach((q, i) => {
   need(String(q.tags ?? '').includes(id), `${n}: tags に「講義;${id}」を入れてください`);
   answers.push(q.correct_answer);
 });
-need(new Set(answers).size >= 3, '正解番号が偏っています（5問で3種類以上に散らしてください）');
+need(new Set(answers).size >= cfg.spread, `正解番号が偏っています（${cfg.q}問で${cfg.spread}種類以上に散らしてください）`);
 if (!qs.some((q) => q.question_type === 'calculation')) console.warn('注意: 計算問題がありません（計算要素のない単元であれば問題ありません）');
 
 const cls = lec.classification;
-need(Array.isArray(cls) && cls.length === 5, 'classification（確認問題ごとの課目の確認記録）が5件必要です');
+need(Array.isArray(cls) && cls.length === cfg.q, `classification（確認問題ごとの課目の確認記録）が${cfg.q}件必要です`);
 qs.forEach((q, i) => {
   const n = `問${i + 1}`;
   need(!!findMiddle(q.subject, q.category_large, q.category_middle), `${n}: 課目「${q.subject}」の学習ガイドに 大分類「${q.category_large}」／中分類「${q.category_middle}」がありません（tools/guide_taxonomy.json の名称と完全に一致させてください）`);
