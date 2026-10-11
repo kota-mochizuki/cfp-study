@@ -9,7 +9,7 @@ import { uid } from '../../lib/random';
 import { Choices, Explanation } from '../QuestionParts';
 import { Empty, Icon, Markdown, PageHeader } from '../components';
 
-const slotLabel = (l: Pick<LectureSummary, 'date' | 'slot'>) => `${l.date.replace(/^\d+-0?(\d+)-0?(\d+)$/, '$1/$2')} ${l.slot === 'am' ? '朝' : '夕'}`;
+const slotLabel = (l: Pick<LectureSummary, 'date' | 'slot'>) => `${l.date.replace(/^\d+-0?(\d+)-0?(\d+)$/, '$1/$2')} ${{ am: '朝', noon: '昼', pm: '夕' }[l.slot] ?? ''}`;
 
 const isDone = (st: LectureState | undefined) => Object.keys(st?.answers ?? {}).length >= 5;
 
@@ -53,7 +53,7 @@ export default function LectureList() {
   return <main className="page">
     <PageHeader title="講義" back="/" />
     {data?.offline && <p className="footnote">通信できないため、前回までに取得した一覧を表示しています。</p>}
-    {data && !data.list.length && <Empty>まだ講義が配信されていません。毎日 7:00 と 17:00 に追加されます。</Empty>}
+    {data && !data.list.length && <Empty>まだ講義が配信されていません。毎日 7:00・12:00・17:00 に追加されます。</Empty>}
     {data && data.list.length > 0 && <>
       <div className="chips" role="group" aria-label="講義の絞り込み">
         <button className={`chip sm ${subject === 'all' && !onlyPending ? 'on' : ''}`} aria-pressed={subject === 'all' && !onlyPending} onClick={() => { setSubject('all'); setOnlyPending(false); }}>すべて</button>

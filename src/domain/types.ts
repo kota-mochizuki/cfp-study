@@ -273,7 +273,7 @@ export interface LectureSummary {
   id: string;
   /** 配信日 YYYY-MM-DD と 朝(am)/夕(pm) */
   date: string;
-  slot: 'am' | 'pm';
+  slot: 'am' | 'noon' | 'pm';
   subject: SubjectId;
   title: string;
   minutes: number;

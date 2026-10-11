@@ -6,7 +6,7 @@ import { commitImport, validateRows } from './importer';
 
 /**
  * 配信講義。本文はアプリに同梱せず、リポジトリの lectures/ から取得する
- * （毎日2回の追加でアプリを再ビルドしなくて済むようにするため）。
+ * （毎日3回の追加でアプリを再ビルドしなくて済むようにするため）。
  * 一度開いた講義は端末に保存し、電波がなくても読める。
  */
 export const LECTURE_BASE = 'https://raw.githubusercontent.com/kota-mochizuki/cfp-study/lectures/lectures';
