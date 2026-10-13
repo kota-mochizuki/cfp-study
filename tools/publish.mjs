@@ -19,18 +19,18 @@ const findMiddle = (subject, large, middle) => {
   const L = guideChildren(subject).filter((n) => !large || norm(n.name) === norm(large));
   return L.flatMap((l) => guideChildren(l.id)).find((m) => norm(m.name) === norm(middle));
 };
-// 配信枠ごとの基準。朝=30分・確認問題5問、昼・夕=15分・確認問題3問
-const SHORT = { label: '昼・夕', minutes: [12, 20], q: 3, body: [2500, 5500], plain: [200, 700], sections: 3, goals: 2, spread: 2 };
-const SLOT = { am: { label: '朝', minutes: [25, 40], q: 5, body: [5000, 10500], plain: [300, 900], sections: 4, goals: 3, spread: 3 }, noon: SHORT, pm: SHORT };
+// 回の基準。2026-10-14 以降の回（slot=night）はすべて15分・確認問題3問。am / noon / pm は変更前に配信した回の形
+const SHORT = { label: '15分', minutes: [12, 20], q: 3, body: [2500, 5500], plain: [200, 700], sections: 3, goals: 2, spread: 2 };
+const SLOT = { am: { label: '朝', minutes: [25, 40], q: 5, body: [5000, 10500], plain: [300, 900], sections: 4, goals: 3, spread: 3 }, noon: SHORT, pm: SHORT, night: SHORT };
 const cfg = SLOT[lec.slot] ?? SLOT.am;
 const SUBJECTS = ['finance', 'realestate', 'life', 'risk', 'tax', 'inheritance'];
 
 need(lec.id === id, 'id がファイル名と一致しません');
 need(/^\d{4}-\d{2}-\d{2}$/.test(lec.date ?? ''), 'date は YYYY-MM-DD');
-need(!!SLOT[lec.slot], 'slot は am / noon / pm');
+need(!!SLOT[lec.slot], 'slot は curriculum.json の値（これからの回は night）');
 need(SUBJECTS.includes(lec.subject), 'subject が不正です');
 need(text(lec.title) && lec.title.length <= 60, 'title は60字以内で必須');
-need(Number.isInteger(lec.minutes) && lec.minutes >= cfg.minutes[0] && lec.minutes <= cfg.minutes[1], `minutes は${cfg.label}の枠では${cfg.minutes[0]}〜${cfg.minutes[1]}の整数（朝30分・昼夕15分を目安に、確認問題を解く時間を含めた分数）`);
+need(Number.isInteger(lec.minutes) && lec.minutes >= cfg.minutes[0] && lec.minutes <= cfg.minutes[1], `minutes は${cfg.label}の枠では${cfg.minutes[0]}〜${cfg.minutes[1]}の整数（15分を目安に、確認問題を解く時間を含めた分数）`);
 need(text(lec.large), 'large（大分類）が必要です');
 need(Array.isArray(lec.middle) && lec.middle.length > 0 && lec.middle.every(text), 'middle（中分類の配列）が必要です');
 need(Array.isArray(lec.goals) && lec.goals.length >= cfg.goals, `goals（到達目標）は${cfg.goals}つ以上`);
